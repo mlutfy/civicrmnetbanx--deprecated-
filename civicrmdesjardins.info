@@ -1,0 +1,6 @@
+name = "CiviCRM Desjardins"
+description = "hooks and extention for Desjardins payment processor integration in CiviCRM"
+package = "CiviCRM"
+core = "7.x"
+
+dependencies[] = civicrm

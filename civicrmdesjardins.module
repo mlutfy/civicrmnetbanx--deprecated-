@@ -1,0 +1,90 @@
+<?php
+
+/**
+ * Implementation of hook_init()
+ */
+function civicrmdesjardins_init() {
+  if (arg(0) == 'civicrm' && arg(1) == 'contribute') {
+    drupal_add_css(drupal_get_path('module', 'civicrmdesjardins') . '/civicrmdesjardins.css');
+  }
+}
+
+/**
+ * Implementation of hook_civicrm_config()
+ */
+function civicrmdesjardins_civicrm_config(&$config) {
+  // set extention path to this module's directory
+  $config =& CRM_Core_Config::singleton( );
+  $config->extensionsDir = drupal_get_path('module', 'civicrmdesjardins') . '/extensions/';
+}
+
+/**
+ * Implementation of hook_civicrm_buildForm()
+ */
+function civicrmdesjardins_civicrm_buildForm($formName, &$form) {
+  /*
+   * Donation forms
+   */
+  if ($formName == 'CRM_Contribute_Form_Contribution_Main') {
+    //
+    // Format amount 10.00$ to 10$
+    //
+    $amounts  =& $form->getElement('amount');
+    $elements =& $amounts->getElements();
+
+    foreach ($elements as $key => $val) {
+      $text = $elements[$key]->getText();
+      $text = preg_replace('/\.00 \$/', '$', $text);
+      $elements[$key]->setText($text);
+    }
+  }
+
+  if ($formName == 'CRM_Contribute_Form_Contribution_Main' || $formName == 'CRM_Event_Form_Registration_Register') {
+    //
+    // Disable the CVV2 field
+    // Note: you also have to hide it from templates in CRM/Core/BillingBlock.tpl
+    // this only removes the requirement to fill in the cvv2 field
+    //  
+    // [ML] removing it causes the form to loop back without an error message (?!)
+    // $form->removeElement('cvv2');
+    $cvv2 =& $form->getElement('cvv2');
+    $cvv2->setValue('000');
+  }
+}
+
+/**
+ * hook_civicrm_tokens() implementation
+ * expose the "receipt" token to email messages
+ */
+function civicrmdesjardins_civicrm_tokens(&$tokens) {
+  $tokens['contribution'] = array(
+    'contribution.desjardins_receipt' => 'Desjardins CC receipt',
+  );
+}
+
+/**
+ * hook_civicrm_tokenValues() implementation
+ */
+function civicrmdesjardins_civicrm_tokenValues( &$details, &$contactIDs ) {
+  $value = array();
+
+  // Prepare the contact ID(s) for use in a database query
+  //
+  // [ML] this is based on an example from the civi book
+  // In our context of contrib receipts, having multiple contactIDs does
+  // not make sense, but leaving the code just in case.
+  if ( is_array( $contactIDs ) ) {
+    $id_contact = $contactIDs['contact_id'];
+    watchdog('desjardinscivicrm', 'Sending email receipt for contact ID: ' . $id_contact . ' (A)');
+  } else {
+    $id_contact = $contactIDs;
+    watchdog('desjardinscivicrm', 'Sending email receipt for contact ID: ' . $id_contact . ' (B)');
+  }
+
+  // Fetch the receipt (assume latest)
+  $tx = db_result(db_query("select invoice_id from {civicrm_contribution} where contact_id = %d order by receive_date desc limit 1", $id_contact));
+  $receipt = db_result(db_query("select receipt from {desjardins_receipt_logs} where trx_id = '%s'", $tx));
+
+  $details['contribution.desjardins_receipt'] = $receipt;
+}
+
