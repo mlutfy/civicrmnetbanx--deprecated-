@@ -49,30 +49,6 @@
  *      'https://www.labdevtrx3.com/catch', 'https://epaiementsecurise.desjardins.com/catch', 
  *      1, 0);
  * 
- * 2- The following is necessary to store the receipts from Desjardins (Desjardins
- *    requirement, but also helps for eventual errors and cross-referencing information)
- * 
- *  CREATE TABLE `desjardins_receipt_logs` (
- *    `trx_id` varchar(255) NOT NULL,
- *    `date`   datetime default NULL COMMENT 'transaction response time',
- *    `code`  int(10) unsigned default NULL COMMENT 'transaction response code',
- *    `receipt` text COMMENT 'full store receipt, including credit cart transaction',
- *    `ip` varchar(255) default '' NOT NULL COMMENT 'ip address of the donor',
- *    PRIMARY KEY  (`trx_id`)
- *  ) ENGINE=InnoDB DEFAULT CHARSET=utf8
- *
- *  CREATE TABLE `desjardins_receipt_debug` (
- *    `id`  int(12) unsigned NOT NULL auto_increment,
- *    `trx_id` varchar(255) NOT NULL,
- *    `date`   datetime default NULL COMMENT 'transaction response time',
- *    `type`   varchar(16) COMMENT 'type of communication',
- *    `message` text COMMENT 'xml message sent or received',
- *    `fail` int(1) default 0 COMMENT 'set to 1 if failure message',
- *    PRIMARY KEY  (`invoiceid`)
- *  ) ENGINE=InnoDB DEFAULT CHARSET=utf8
- *
- * c.f. https://wiki.koumbit.net/SpiDesjardins/ImplémentationCiviCrm
- * 
  * To display the receipt to the user:
  * 
  * * Edit: CRM/Contribute/Form/Contribution/ThankYou.php
