@@ -87,7 +87,7 @@
 
 require_once 'CRM/Core/Payment.php';
 
-class CRM_Core_Payment_Desjardins extends CRM_Core_Payment {
+class org_civicrm_payment_desjardins extends CRM_Core_Payment {
     const
         CHARSET  = 'UFT-8'; # (not used, implicit in the API, might need to convert?)
 
@@ -261,7 +261,7 @@ class CRM_Core_Payment_Desjardins extends CRM_Core_Payment {
     static function &singleton( $mode, &$paymentProcessor ) {
         $processorName = $paymentProcessor['name'];
         if (self::$_singleton[$processorName] === null ) {
-            self::$_singleton[$processorName] = new CRM_Core_Payment_Desjardins( $mode, $paymentProcessor );
+            self::$_singleton[$processorName] = new org_civicrm_payment_desjardins( $mode, $paymentProcessor );
         }
         return self::$_singleton[$processorName];
     }
