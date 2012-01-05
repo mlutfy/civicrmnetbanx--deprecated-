@@ -19,6 +19,45 @@ function civicrmdesjardins_civicrm_config(&$config) {
 }
 
 /**
+ * Implementation of hook_menu()
+ */
+function civicrmdesjardins_menu() {
+  $items['civicrmdesjardins/validate'] = array(
+    'title' => 'CiviCRM Desjardins transaction validation',
+    'description' => 'Responds to Desjardins transaction pings to see if they are valid.',
+    'page callback' => 'civicrmdesjardins_validate',
+    'type' => MENU_CALLBACK,
+    'access callback' => TRUE,
+  );
+  return $items;
+}
+
+/**
+ * Receives the confirmation request from Desjardins using POST
+ */
+function civicrmdesjardins_validate() {
+  $data_received = stripslashes($GLOBALS['HTTP_RAW_POST_DATA']);
+  $data_received = strstr($data_received,'<');
+
+watchdog('civicrmdesjardins', 'POST: ' . print_r($_POST, 1));
+watchdog('civicrmdesjardins', 'data: ' . print_r($data_received, 1));
+
+  $arr_values = '';
+  $index = '';
+
+  $xml_parser = xml_parser_create();
+  xml_parser_set_option($xml_parser, XML_OPTION_CASE_FOLDING, 0);
+  xml_parser_set_option($xml_parser, XML_OPTION_SKIP_WHITE, 0);
+  xml_parse_into_struct($xml_parser, $data_received, $arr_values, $index);
+  xml_parser_free($xml_parser);
+
+  $transactions_info = civicrmdesjardins_parse_transaction($arr_values);
+  civicrmdesjardins_send_confirmation($transactions_info);
+
+  drupal_exit();
+}
+
+/**
  * Implementation of hook_civicrm_buildForm()
  */
 function civicrmdesjardins_civicrm_buildForm($formName, &$form) {
@@ -82,9 +121,58 @@ function civicrmdesjardins_civicrm_tokenValues( &$details, &$contactIDs ) {
   }
 
   // Fetch the receipt (assume latest)
-  $tx = db_result(db_query("select invoice_id from {civicrm_contribution} where contact_id = %d order by receive_date desc limit 1", $id_contact));
-  $receipt = db_result(db_query("select receipt from {desjardins_receipt_logs} where trx_id = '%s'", $tx));
+  $tx = db_query("select invoice_id from {civicrm_contribution} where contact_id = :id order by receive_date desc limit 1", array(':id' => $id_contact))->fetchField();
+  $receipt = db_query("select receipt from {civicrmdesjardins_receipt} where trx_id = :tx", array(':tx' => $tx))->fetchField();
 
   $details['contribution.desjardins_receipt'] = $receipt;
+}
+
+
+/* ************************************ */
+
+function civicrmdesjardins_parse_transaction($xml_in_array) {
+  $return_transaction = array();
+  $array_transaction_info = array('file_format'=>'xml');
+
+  foreach ($xml_in_array as $xml_node_object) {
+    switch ($xml_node_object['tag']) {
+      case 'merchant':
+        $array_transaction_info['merchant_id'] = $xml_node_object['attributes']['id'];
+        break;
+    
+      case 'transaction':
+        if ($xml_node_object['level'] == 3 && $xml_node_object['type'] == 'open') {
+          $array_transaction_info['transaction_id'] = $xml_node_object['attributes']['id'];
+          $array_transaction_info['transaction_currency'] = $xml_node_object['attributes']['currency'];
+          $array_transaction_info['transaction_currencyText'] = $xml_node_object['attributes']['currencyText'];
+          $array_transaction_info['transaction_approved'] = $xml_node_object['attributes']['approved'];
+        }
+        elseif ($xml_node_object['level'] == 4 && $xml_node_object['type'] == 'open') {
+          $array_transaction_info['transaction_id'] = $xml_node_object['attributes']['id'];
+        }
+
+        if ($xml_node_object['level'] == 4 && $xml_node_object['type'] == 'close') {
+          $return_transaction[] = $array_transaction_info;
+        }
+        break;
+    }
+  }
+
+  return $return_transaction;
+}
+
+function civicrmdesjardins_send_confirmation($transaction_info) {
+  header('Content-Type: text/xml');
+  header('Cache-Control: no-cache, must-revalidate'); // HTTP/1.1
+  header('Expires: Mon, 26 Jul 1997 05:00:00 GMT'); // Date in the past
+
+  $response = '<?xml version="1.0" encoding="ISO-8859-15"?>'."\n";
+  $response .= '<response>' . "\n";
+  $response .= '  <merchant id="' . $transaction_info['merchant_id'] . '">' . "\n";
+  $response .= '    <transaction id="' . $transaction_info['transaction_id'] . '" accepted="yes" />' . "\n";
+  $response .= '  </merchant>'."\n";
+  $response .= '</response>'."\n";
+
+  echo $response;
 }
 
