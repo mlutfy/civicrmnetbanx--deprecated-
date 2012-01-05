@@ -58,6 +58,12 @@ function civicrmdesjardins_schema() {
         'type' => 'text',
         'not null' => FALSE,
       ),
+      'ip' => array(
+        'description' => 'IP of the visitor',
+        'type' => 'varchar',
+        'length' => '255',
+        'not null' => TRUE,
+      ),
       'fail' => array(
         'description' => 'Set to 1 if the message was an error.',
         'type' => 'int',
