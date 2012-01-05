@@ -79,6 +79,9 @@ class org_civicrm_payment_desjardins extends CRM_Core_Payment {
      */
     static private $_singleton = null;
 
+    // IP of the visitor
+    private $ip = 0;
+
     /** 
      * Constructor 
      *
@@ -107,7 +110,8 @@ class org_civicrm_payment_desjardins extends CRM_Core_Payment {
     function dj_purchase($tx_id, $tx_key, $amount, $cc_num, $cc_name, $cc_expyear, $cc_expmonth, $cc_email) {
     	$merchant_id = $this->_profile['storeid'];
     	$merchant_key = $this->_profile['apitoken'];
-    	$url_response = "https://oxfam.qc.ca/dj_response.php"; // XXX should be in a configuration variable
+        $url_response = 'https://oxfam.qc.ca/dj_response.php'; // XXX HACK waiting for the SSL cert to be installed
+//     	$url_response = 'https://' . $_SERVER['SERVER_NAME'] . '/civicrmdesjardins/validate'; // XXX should use the correct variable for baseurl
    	$submit_url =  $this->_paymentProcessor['url_site'];
     
     	$amount = intval($amount * 100); // Ex: 15.24$ => 1524
@@ -171,8 +175,9 @@ class org_civicrm_payment_desjardins extends CRM_Core_Payment {
     	$index = '';
     
     	$xml_parser = xml_parser_create();
-    	xml_parser_set_option($xml_parser,XML_OPTION_CASE_FOLDING,0);
-    	xml_parser_set_option($xml_parser,XML_OPTION_SKIP_WHITE,0);
+    	xml_parser_set_option($xml_parser, XML_OPTION_CASE_FOLDING, 0);
+    	xml_parser_set_option($xml_parser, XML_OPTION_SKIP_WHITE, 0);
+        xml_parser_set_option($xml_parser, XML_OPTION_TARGET_ENCODING, "UTF-8");
     	xml_parse_into_struct($xml_parser, $response, $arr_values, $index);
     	xml_parser_free($xml_parser);
     
@@ -181,7 +186,7 @@ class org_civicrm_payment_desjardins extends CRM_Core_Payment {
         // [ML] issue 3038, in one case, a transaction was approved, but had an empty receipt.
         $fail = ($fixed_trx_values['transaction_approved'] == 'no' || (! $fixed_trx_values['receipt_full']) || $fixed_trx_values['errcode']);
 
-        $this->djLog($tx_id, print_r($response, 1), 'purchase response', $fail);
+        $this->djLog($tx_id, utf8_encode($response), 'purchase response', $fail);
 
     	return $fixed_trx_values;
     }
@@ -248,10 +253,13 @@ class org_civicrm_payment_desjardins extends CRM_Core_Payment {
         return self::error('The Desjardins.com API service requires curl.  Please talk to your system administrator to get this configured.');
       }
 
+      $this->ip = $params['ip_address'];
+
       # make sure i've been called correctly ...
       if ( ! $this->_profile ) {
           return self::error('Unexpected error, missing profile');
       }
+
       if ($params['currencyID'] != 'CAD') {
          # [ML] FIXME return self::error('Invalid currency selection, must be CAD');
       }
@@ -346,19 +354,16 @@ class org_civicrm_payment_desjardins extends CRM_Core_Payment {
     	. t("Authorization:") . " " . $purchase[42]['value'] . "\n"
     	. $receipt_full . "\n"
     	. t('General Terms and Conditions') . ":\n"
-    	. "http://oxfam.qc.ca/" . i18n_get_lang() . "/conditions/termes" // [ML] FIXME, should be in config variable
+    	. "FIXME" // "http://oxfam.qc.ca/" . i18n_get_lang() . "/conditions/termes" // [ML] FIXME, should be in config variable
         . "\n\n"
     	. $receipt;
     
       $params['receipt_desjardins'] = $receipt_full;
       $params['trxn_id'] = $invoice_id;
 
-      // FIXME: correct string escaping?
-      $query = "INSERT INTO desjardins_receipt_logs (trx_id, receipt, date, ip)
-                VALUES ('". $invoice_id ."', '" . mysql_real_escape_string($receipt_full) ."', NOW(), '" . mysql_real_escape_string($params['ip_address']) . "');";
-
-      $nullArray = array( );
-      $dao = CRM_Core_DAO::executeQuery( $query, $nullArray );
+      db_query("INSERT INTO {civicrmdesjardins_receipt (trx_id, receipt, timestamp, ip)
+                VALUES (:trx_id, :receipt, :timestamp, :ip)",
+                array(':trx_id' => $invoice_id, ':receipt' => $receipt_full, ':timestamp' => time(), ':ip' => $params['ip_address']));
 
       return $params;
     }
@@ -392,7 +397,7 @@ class org_civicrm_payment_desjardins extends CRM_Core_Payment {
 	$response = curl_exec($ch);
 	curl_close($ch);
 
-        $this->djLog($id_trx, 'login response = ' . print_r($response, 1), 'dj_login response');
+        $this->djLog($id_trx, utf8_encode($response), 'dj_login response');
 
 	return $response;
     }
@@ -440,8 +445,9 @@ class org_civicrm_payment_desjardins extends CRM_Core_Payment {
     function isTooManyTransactions($params) {
       $ip = $params['ip_address'];
 
-      // XXX Drupal6 specific..
-      $nb_tx_lately = db_result(db_query('select count(*) from {desjardins_receipt_logs} where ip = "%s" and date > DATE_SUB(NOW(), INTERVAL 1 HOUR)', $ip));
+      $nb_tx_lately = db_query('SELECT count(*) from {civicrmdesjardins_receipt}
+         WHERE ip = :ip and timestamp > UNIX_TIMESTAMP(DATE_SUB(NOW(), INTERVAL 1 HOUR))',
+         array(':ip' => $ip))->fetchField();
 
       if ($nb_tx_lately >= 4) {
         return TRUE;
@@ -516,11 +522,17 @@ class org_civicrm_payment_desjardins extends CRM_Core_Payment {
 
     function djLog($trx_id, $message, $type, $fail = 0) {
       #if ($this->CIVICRM_DESJARDINS_LOG) {
+        $time = time();
         $message = preg_replace('/<number>(\d{2})\d{10}(\d{4})<\/number>/', '<number>\1**********\2</number>', $message);
 
-        db_query("INSERT INTO {desjardins_receipt_debug} (trx_id, date, type, message, fail)
-                  VALUES ('%s', NOW(), '%s', '%s', %d)",
-                  $trx_id, $type, $message, $fail);
+        // sometimes the field is empty, not 0
+        if (! $fail) {
+          $fail = 0;
+        }
+
+        db_query("INSERT INTO {civicrmdesjardins_log} (trx_id, timestamp, type, message, fail, ip)
+                  VALUES (:trx_id, :timestamp, :type, :message, :fail, :ip)",
+                  array(':trx_id' => $trx_id, ':timestamp' => $time, ':type' => $type, ':message' => $message, ':fail' => $fail, ':ip' => $this->ip));
       #}
     }
 }
