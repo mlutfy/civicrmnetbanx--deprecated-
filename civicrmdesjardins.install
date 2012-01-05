@@ -50,7 +50,7 @@ function civicrmdesjardins_schema() {
       'type' => array(
         'description' => 'Type of communication',
         'type' => 'varchar',
-        'length' => '16',
+        'length' => '32',
         'not null' => FALSE,
       ),
       'message' => array(
