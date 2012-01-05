@@ -21,7 +21,7 @@ MORE INFORMATION:
 
 https://github.com/mlutfy/CiviCRM-Desjardins
 
-(C) 2011 Mathieu Lutfy <mathieu@bidon.ca>
+(C) 2011-2012 Mathieu Lutfy <mathieu@bidon.ca>
 
 This module is in no way affiliated, endorsed or supported by Desjardins or Visa Desjardins.
 
