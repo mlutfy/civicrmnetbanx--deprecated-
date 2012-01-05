@@ -1,0 +1,135 @@
+<?php
+
+/**
+ * @file
+ * Installation file for civicrmdesjardins module.
+ */
+
+
+/**
+ * Implements hook_install().
+ */
+function civicrmdesjardins_install() {
+  // nothing to do ..
+}
+
+/**
+ * Implements hook_uninstall().
+ */
+function civicrmdesjardins_uninstall() {
+  drupal_uninstall_schema('civicrmdesjardins');
+}
+
+/**
+ * Implements hook_schema().
+ */
+function civicrmdesjardins_schema() {
+  $schema = array();
+
+  $schema['civicrmdesjardins_log'] = array(
+    'description' => 'Logs all communications with the payment gateway.',
+    'fields' => array(
+      'id' => array(
+        'description' => 'Log ID',
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'trx_id' => array(
+        'description' => 'CiviCRM transaction ID',
+        'type' => 'varchar',
+        'length' => '255',
+        'not null' => TRUE,
+      ),
+      'timestamp' => array(
+        'description' => 'A Unix timestamp indicating when this message was sent or received.',
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'type' => array(
+        'description' => 'Type of communication',
+        'type' => 'varchar',
+        'length' => '16',
+        'not null' => FALSE,
+      ),
+      'message' => array(
+        'description' => 'XML message sent or received',
+        'type' => 'text',
+        'not null' => FALSE,
+      ),
+      'fail' => array(
+        'description' => 'Set to 1 if the message was an error.',
+        'type' => 'int',
+        'size' => 'tiny',
+        'not null' => FALSE,
+        'default' => 0,
+      ),
+    ),
+    'primary key' => array('id'),
+  );
+
+  $schema['civicrmdesjardins_receipt'] = array(
+    'description' => 'Logs all credit card receipts sent to users.',
+    'fields' => array(
+      'trx_id' => array(
+        'description' => 'CiviCRM transaction ID',
+        'type' => 'varchar',
+        'length' => '255',
+        'not null' => TRUE,
+      ),
+      'timestamp' => array(
+        'description' => 'A Unix timestamp indicating when this receipt was created',
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'code' => array(
+        'description' => 'Transaction response code',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => FALSE,
+      ),
+      'receipt' => array(
+        'description' => 'Full store receipt, including credit card transaction',
+        'type' => 'text',
+        'not null' => FALSE,
+      ),
+      'ip' => array(
+        'description' => 'IP address of the donor',
+        'type' => 'varchar',
+        'length' => '255',
+        'not null' => TRUE,
+        'default' => '',
+      ),
+    ),
+    'primary key' => array('trx_id'),
+  );
+
+  return $schema;
+
+}
+
+/**
+ * Implementation of hook_requirements
+ */
+function civicrmdesjardins_requirements($phase) {
+  $requirements = array();
+
+  // Ensure translations don't break at install time
+  $t = get_t();
+
+  if ($phase == 'runtime') {
+    $ok = function_exists('curl_init');
+
+    $requirements['civicrmdesjardins_curl'] = array(
+      'title' => 'CiviCRM Desjardins: php-curl',
+      'value' => ($ok ? $t("Installed") : $t("Missing")),
+      'description' => $t("The Desjardins payment gateway for CiviCRM requires the php-curl library."),
+      'severity' => ($ok ? REQUIREMENT_OK : REQUIREMENT_ERROR),
+    );  
+
+    return $requirements;
+  }
+}
+
