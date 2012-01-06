@@ -7,13 +7,7 @@ therefore you will need an SSL certificate on your donation page.
 INSTALLATION:
 ------------
 
-Enable this module in Drupal, then enable the extention in CiviCRM.
-
-The module also requires the "curl" PHP library. Under Debian, apt-get install php5-curl.
-
-IMPORTANT:
-* This module overrides your extention directory. (maybe we ought to find a better solution?)
-* The 'extensions' subdirectory must be writable by the web server (this is a civicrm requirement).
+See the INSTALL.txt file.
 
 
 MORE INFORMATION:

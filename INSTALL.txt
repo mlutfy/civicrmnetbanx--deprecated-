@@ -1,0 +1,34 @@
+
+View the README.txt for general information about this module before installing.
+
+REQUIREMENTS:
+------------
+
+* The "curl" PHP library. Under Debian, apt-get install php5-curl.
+  This library is necessary for when communicating credit card information
+  with the payment gateway.
+
+* The 'extensions' subdirectory must be writable by the web server (this is a civicrm requirement).
+
+INSTALLATION:
+------------
+
+* Enable this module in Drupal, then enable the extention in CiviCRM.
+
+* In CiviCRM > Admin > CiviMail > Message templates (/civicrm/admin/messageTemplates?reset=1),
+  go to the "System messages" subtab. Edit the "Contributions - Receipt (on-line)" template
+  and add the token "Desjardins CC receipt", i.e. {contribution.desjardins_receipt} in the 
+  "credit card information" section of the template (both HTML and text formats).
+
+* In the receipt template, add a section with the "Terms and conditions", including
+  your privacy policy, shipping fees (even if there are none) and refund policy.
+
+* In CiviCRM > Admin > Configure > Domain information (civicrm/admin/domain?action=update&reset=1),
+  make sure you have set correct values for the organisation name, e-mail and postal address.
+
+CAVEATS:
+-------
+
+* This module overrides your extension directory. (maybe we ought to find a better solution?)
+
+
