@@ -1,5 +1,5 @@
-<?php 
- 
+<?php
+
 /*
  +--------------------------------------------------------------------+
  | Desjardins Payment Gateway Processor (without redirection)         |
@@ -42,7 +42,7 @@ class org_civicrm_payment_desjardins extends CRM_Core_Payment {
 
     const
         CIVICRM_DESJARDINS_LOG = TRUE; # Wheter to log all XML communication with the gateway
-         
+
     /**
      * We only need one instance of this object. So we use the singleton
      * pattern and cache the instance in this variable
@@ -55,13 +55,13 @@ class org_civicrm_payment_desjardins extends CRM_Core_Payment {
     // IP of the visitor
     private $ip = 0;
 
-    /** 
-     * Constructor 
+    /**
+     * Constructor
      *
      * @param string $mode the mode of operation: live or test
-     * 
-     * @return void 
-     */ 
+     *
+     * @return void
+     */
     function __construct( $mode, &$paymentProcessor ) {
         $this->_mode = $mode;
         $this->_paymentProcessor = $paymentProcessor;
@@ -85,15 +85,15 @@ class org_civicrm_payment_desjardins extends CRM_Core_Payment {
     	$merchant_key = $this->_profile['apitoken'];
         $url_response = 'https://' . $_SERVER['SERVER_NAME'] . '/civicrmdesjardins/validate'; // XXX should use the correct variable for baseurl
    	$submit_url =  $this->_paymentProcessor['url_site'];
-    
+
     	$amount = intval($amount * 100); // Ex: 15.24$ => 1524
 
         // Clean up CC number
         $cc_num = preg_replace('/[^0-9]/', '', $cc_num);
-    
+
     	$xmlData = '';
     	$response = '';
-    
+
     	$xmlData .= '<?xml version="1.0" encoding="UTF-8" ?>';
     	$xmlData .= '<request>';
     	$xmlData .=   '<merchant id="' .$merchant_id . '" key="' . $merchant_key . '">';
@@ -119,17 +119,17 @@ class org_civicrm_payment_desjardins extends CRM_Core_Payment {
     	$xmlData .=     '</transactions>';
     	$xmlData .=   '</merchant>';
     	$xmlData .= '</request>';
-    
+
         $this->djLog($tx_id, $xmlData, 'purchase send');
 
     	$header = array();
     	$header[] = "MIME-Version: 1.0";
     	$header[] = "Content-type: text/xml";
     	$header[] = "Accept: text/xml";
-    	$header[] = "Content-length: " . strlen($xmlData); 
+    	$header[] = "Content-length: " . strlen($xmlData);
     	$header[] = "Cache-Control: no-cache";
     	$header[] = "Connection: close";
-    
+
     	$ch = curl_init();
     	curl_setopt($ch, CURLOPT_HTTPHEADER, $header);
     	curl_setopt($ch, CURLOPT_URL, $submit_url);
@@ -149,15 +149,15 @@ class org_civicrm_payment_desjardins extends CRM_Core_Payment {
         return $r;
     }
 
-    /** 
-     * singleton function used to manage this object 
-     * 
+    /**
+     * singleton function used to manage this object
+     *
      * @param string $mode the mode of operation: live or test
      *
-     * @return object 
-     * @static 
-     * 
-     */ 
+     * @return object
+     * @static
+     *
+     */
     static function &singleton( $mode, &$paymentProcessor ) {
         $processorName = $paymentProcessor['name'];
         if (self::$_singleton[$processorName] === null ) {
@@ -253,14 +253,30 @@ class org_civicrm_payment_desjardins extends CRM_Core_Payment {
       $receipt = preg_replace("/^0/", "", $receipt);
       $receipt = preg_replace("/\n0/", "\n", $receipt);
 
+      if (function_exists('variable_get')) {
+        $tos_url  = variable_get('civicrmdesjardins_tos_url', FALSE);
+        $tos_text = variable_get('civicrmdesjardins_tos_text', FALSE);
+
+        if ($tos_url) {
+          $receipt .= "\n\n";
+          $receipt .= t("Terms and conditions:") . "\n";
+          $receipt .= $tos_url . "\n\n";
+        }
+
+        if ($tos_text) {
+          $receipt .= wordwrap($tos_text);
+        }
+      }
+
       $params['receipt_desjardins'] = "Transaction: " . $invoice_id . "\n"
-    	. t("Authorization:") . " " . $purchase['authorization_no'] . "\n\n"
+    	. t("Authorization:") . " " . $purchase['authorization_no'] . "\n"
+        . t("Reference:") . " " . $purchase['sequence_no'] . ' ' . $purchase['terminal_id'] . "\n\n"
     	. $receipt;
 
       if (function_exists('drupal_set_message')) {
         drupal_set_message('<pre>' . $params['receipt_desjardins'] . '</pre>');
       }
-    
+
       db_query("INSERT INTO {civicrmdesjardins_receipt (trx_id, receipt, timestamp, ip)
                 VALUES (:trx_id, :receipt, :timestamp, :ip)",
                 array(':trx_id' => $invoice_id, ':receipt' => $params['receipt_desjardins'], ':timestamp' => time(), ':ip' => $params['ip_address']));
@@ -336,7 +352,7 @@ class org_civicrm_payment_desjardins extends CRM_Core_Payment {
         return TRUE;
       }
 
-      return FALSE; 
+      return FALSE;
     }
 
     /**
@@ -397,19 +413,19 @@ class org_civicrm_payment_desjardins extends CRM_Core_Payment {
         return $e;
     }
 
-    /** 
-     * This function checks to see if we have the right config values 
-     * 
-     * @return string the error message if any 
-     * @public 
-     */ 
+    /**
+     * This function checks to see if we have the right config values
+     *
+     * @return string the error message if any
+     * @public
+     */
     function checkConfig( ) {
         $error = array( );
 
         if ( empty( $this->_paymentProcessor['user_name'] ) ) {
             $error[] = ts( 'Merchant ID is not set in the Administer CiviCRM &raquo; Payment Processor.' );
         }
-            
+
         if ( empty( $this->_paymentProcessor['password'] ) ) {
             $error[] = ts( 'Password is not set in the Administer CiviCRM &raquo; Payment Processor.' );
         }
@@ -534,7 +550,7 @@ class CRM_Core_Payment_Desjardins_Response {
    *       <process_info>T@1</process_info>
    *       <authorization_no>101123</authorization_no>
    *       <receipt_text>APPROUVEE - MERCI</receipt_text>
-   *       <receipt><![CDATA[0RELEVE DE TRANSACTION/TRANSACTION RECORD   
+   *       <receipt><![CDATA[0RELEVE DE TRANSACTION/TRANSACTION RECORD
    *         0
    *         0TPVEV000001  MARCH05123450
    *         0          ORG NAME
@@ -552,7 +568,7 @@ class CRM_Core_Payment_Desjardins_Response {
    *         0
    *         0
    *         0             00 APPROUVEE - MERCI
-   *         
+   *
    *         ]]>
    *       </receipt>
    *     </transaction>
