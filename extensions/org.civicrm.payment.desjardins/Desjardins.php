@@ -4,7 +4,7 @@
  +--------------------------------------------------------------------+
  | Desjardins Payment Gateway Processor (without redirection)         |
  +--------------------------------------------------------------------+
- | Copyright Mathieu Lutfy 2010-2011                                  |
+ | Copyright Mathieu Lutfy 2010-2012                                  |
  +--------------------------------------------------------------------+
  | This file is part of the Payment gateway extension for CiviCRM.    |
  |                                                                    |
@@ -110,8 +110,7 @@ class org_civicrm_payment_desjardins extends CRM_Core_Payment {
     function dj_purchase($tx_id, $tx_key, $amount, $cc_num, $cc_name, $cc_expyear, $cc_expmonth, $cc_email) {
     	$merchant_id = $this->_profile['storeid'];
     	$merchant_key = $this->_profile['apitoken'];
-        $url_response = 'https://oxfam.qc.ca/dj_response.php'; // XXX HACK waiting for the SSL cert to be installed
-//     	$url_response = 'https://' . $_SERVER['SERVER_NAME'] . '/civicrmdesjardins/validate'; // XXX should use the correct variable for baseurl
+        $url_response = 'https://' . $_SERVER['SERVER_NAME'] . '/civicrmdesjardins/validate'; // XXX should use the correct variable for baseurl
    	$submit_url =  $this->_paymentProcessor['url_site'];
     
     	$amount = intval($amount * 100); // Ex: 15.24$ => 1524
@@ -171,63 +170,10 @@ class org_civicrm_payment_desjardins extends CRM_Core_Payment {
     	$response = curl_exec($ch);
     	curl_close($ch);
 
-    	$arr_values = array();
-    	$index = '';
-    
-    	$xml_parser = xml_parser_create();
-    	xml_parser_set_option($xml_parser, XML_OPTION_CASE_FOLDING, 0);
-    	xml_parser_set_option($xml_parser, XML_OPTION_SKIP_WHITE, 0);
-        xml_parser_set_option($xml_parser, XML_OPTION_TARGET_ENCODING, "UTF-8");
-    	xml_parse_into_struct($xml_parser, $response, $arr_values, $index);
-    	xml_parser_free($xml_parser);
-    
-        $fixed_trx_values = $this->dj_get_tx_info_from_array($arr_values);
+        $r = new CRM_Core_Payment_Desjardins_Response('Payment', $response);
+        $this->djLog($tx_id, utf8_encode($response), 'purchase response', $r->isError());
 
-        // [ML] issue 3038, in one case, a transaction was approved, but had an empty receipt.
-        $fail = ($fixed_trx_values['transaction_approved'] == 'no' || (! $fixed_trx_values['receipt_full']) || $fixed_trx_values['errcode']);
-
-        $this->djLog($tx_id, utf8_encode($response), 'purchase response', $fail);
-
-    	return $fixed_trx_values;
-    }
-
-    function dj_get_tx_info_from_array($trx_values) {
-        $array_transaction_info = array();
-
-        $trx_values_key = array();
-        foreach ($trx_values as $num => $trx_value) {
-            $trx_values_key[$trx_value['tag']][] = $trx_value;
-        }
-
-        if ($trx_values_key['error'][0]['level'] > 0 && substr($trx_values_key['code'][0]['value'], 0, 1) == 'W') {
-          $array_transaction_info['errcode'] = $trx_values_key['code'][0]['value'];
-          $array_transaction_info['message'] = $trx_values_key['message'][0]['value'];
-          return $array_transaction_info;
-        }
-
-        $array_transaction_info['merchant_id'] = $trx_values_key['merchant'][0]['attributes']['id'];
-        $array_transaction_info['transaction_id'] = $trx_values_key['transaction'][0]['attributes']['id'];
-        $array_transaction_info['transaction_currency'] = $trx_values_key['transaction'][0]['attributes']['currency'];
-        $array_transaction_info['transaction_currencyText'] = $trx_values_key['transaction'][0]['attributes']['currencyText'];
-        $array_transaction_info['transaction_approved'] = $trx_values_key['transaction'][0]['attributes']['approved'];
-        $array_transaction_info['terminal_id'] = $trx_values_key['terminal_id'][0]['value'];
-        $array_transaction_info['amount'] = $trx_values_key['amount'][0]['value'];
-        $array_transaction_info['language'] = $trx_values_key['language'][0]['value'];
-        $array_transaction_info['card_holder_name'] = $trx_values_key['card_holder_name'][0]['value'];
-        $array_transaction_info['date'] = $trx_values_key['date'][0]['value'];
-        $array_transaction_info['transaction_code'] = $trx_values_key['transaction'][0]['value'];
-        $array_transaction_info['condition_code'] = $trx_values_key['condition_code'][0]['value'];
-        $array_transaction_info['iso_code'] = $trx_values_key['iso_code'][0]['value'];
-        $array_transaction_info['host_code'] = $trx_values_key['host_code'][0]['value'];
-        $array_transaction_info['action_code'] = $trx_values_key['action_code'][0]['value'];
-        $array_transaction_info['card_type'] = $trx_values_key['card_type'][0]['value'];
-        $array_transaction_info['batch_no'] = $trx_values_key['batch_no'][0]['value'];
-        $array_transaction_info['sequence_no'] = $trx_values_key['sequence_no'][0]['value'];
-        $array_transaction_info['process_info'] = $trx_values_key['process_info'][0]['value'];
-        $array_transaction_info['authorization_no'] = $trx_values_key['authorization_no'][0]['value'];
-        $array_transaction_info['receipt_text'] = $trx_values_key['receipt_text'][0]['value'];
-        $array_transaction_info['receipt_full'] = $trx_values_key['receipt'][0]['value'];
-        return $array_transaction_info;
+        return $r;
     }
 
     /** 
@@ -266,7 +212,7 @@ class org_civicrm_payment_desjardins extends CRM_Core_Payment {
 
       // Fraud-protection: Validate the postal code
       if (! $this->isValidPostalCode($params)) {
-        watchdog('CiviCRM Desjardins', 'Invalid postcode for Canada: ' . print_r($params, 1));
+        watchdog('civicrmdesjardins', 'Invalid postcode for Canada: ' . print_r($params, 1));
         $this->djLog($params['invoiceID'], 'anti-fraud (CDJ002 invalid postcode): ' . print_r($params, 1), 'do_direct fraud', TRUE);
         return self::error(t("Error") . ": " . t('The transaction could not be processed, please contact us for more information.')
                       . ' (code: CDJ002) '
@@ -275,7 +221,7 @@ class org_civicrm_payment_desjardins extends CRM_Core_Payment {
 
       // Fraud-protection: Limit the number of transactions: 2 per 6 hours
       if ($this->isTooManyTransactions($params)) {
-        watchdog('CiviCRM Desjardins', 'Too many transactions from: ' . $params['ip_address']);
+        watchdog('civicrmdesjardins', 'Too many transactions from: ' . $params['ip_address']);
         $this->djLog($params['invoiceID'], 'anti-fraud (CDJ003 too many transactions from IP): ' . print_r($params, 1), 'do_direct fraud', TRUE);
         return self::error(t("Error") . ": " . t('The transaction could not be processed, please contact us for more information.')
                       . ' (code: CDJ003) '
@@ -299,71 +245,52 @@ class org_civicrm_payment_desjardins extends CRM_Core_Payment {
       $merchant_key  = $this->_profile['apitoken'];
       $invoice_id = $params['invoiceID'];
 
-      if (! ($cc_num == '4111111111111111' && $cc_month == '03')) {
-          $auth = $this->doDesjardinsLogin($merchant_key, $invoice_id);
-    
-          $r = new CRM_Core_Payment_Desjardins_Response($auth);
-          $d = $r->getData();
-    
-          $purchase = $this->dj_purchase($d['trx']['id'], $d['trx']['key'], $amount, $cc_num, $cc_name, $cc_year, $cc_month, $tx_email);
-    
-          if ($purchase['transaction_approved'] == 'no' || (! $purchase['receipt_full']) || $purchase['errcode']) {
-              $errcode = ($purchase['condition_code'] ? $purchase['condition_code'] : $purchase['errcode']);
-              $errcode = ($errcode ? $errcode : 'unknown');
+      // used to have a special CC number to make test transactions, but should be avoided..
+      // if (! ($cc_num == '4111111111111111' && $cc_month == '03')) {
+      // }
 
-              // FIXME [ML]  this had a 9010 error code before, was removed in 3.3
-              return self::error(t("Error") . ": " . $purchase['receipt_text']
-                  . ' (code: ' . $errcode . ') '
-                  . '<pre>' . $purchase['receipt_full'] . '</pre>'
-                  . '<div class="civicrm-dj-retrytx">' . t("The transaction was not approved. Please verify your credit card number and expiration date.") . '</div>');
-          }
+      $authresp = $this->doDesjardinsLogin($merchant_key, $invoice_id);
+      $auth = $authresp->getData();
+
+      if ($authresp->isError()) {
+        // login failed, probably an error caused by the merchant site, not the user.
+        return self::error(t("Error") . ": " . $authresp->getErrorMessage()
+            . '<div class="civicrm-dj-retrytx">' . t("The transaction could not be processed. Please contact us.") . '</div>');
       }
 
-      // CHECK Todo: above assignment seems to be ignored, not getting stored in the civicrm_financial_trxn table
+      $purchaseresp = $this->dj_purchase($auth['trx']['id'], $auth['trx']['key'], $amount, $cc_num, $cc_name, $cc_year, $cc_month, $tx_email);
+      $purchase = $purchaseresp->getData();
+
+      if ($purchaseresp->isError() || (! $purchase['receipt'])) {
+        $errcode = ($purchase['condition_code'] ? $purchase['condition_code'] : $purchase['errcode']);
+        $errcode = ($errcode ? $errcode : 'unknown');
+
+        return self::error(t("Error") . ": " . $purchase['receipt_text']
+          . ' (code: ' . $errcode . ') '
+          . '<pre>' . $purchase['receipt'] . '</pre>'
+          . '<div class="civicrm-dj-retrytx">' . t("The transaction was not approved. Please verify your credit card number and expiration date.") . '</div>');
+      }
 
       // Success
-      // $params['trxn_result_code'] = $purchase['transaction_approved']; // may be about anything.. add approval code?
       $params['trxn_result_code'] = $purchase['condition_code'];
-      $params['trxn_id']        = $purchase['transaction_id'];
+      $params['trxn_id']        = $invoice_id;
       $params['gross_amount']   = $amount;
 
-      // todo: above assignment seems to be ignored, not getting stored in the civicrm_financial_trxn table
-      // $params['trxn_id']        = 1; // FIXME $mpgResponse->getTxnNumber();
-
-      $receipt = $purchase['receipt_full'];
+      $receipt = $purchase['receipt'];
       $receipt = preg_replace("/^0/", "", $receipt);
       $receipt = preg_replace("/\n0/", "\n", $receipt);
 
-      // we divide by 100 because Desjardins returns 100 for 1.00$
-      $product_info = '  ' . t('Donation') . ': ' . sprintf('%.02f', $amount) . '$ CAD';
-
-      // Add a few info on the receipt, make it look like a real store receipt:
-      require_once 'CRM/Core/BAO/Domain.php';
-      $domain =& CRM_Core_BAO_Domain::getDomain( );
-
-      $loc =& $domain->getLocationValues();
-      $address = $loc['address'][1];
-
-      $receipt_full = $domain->name . " - " . $GLOBALS['base_url'] . "\n"
-     	. $address['street_address'] . "\n"
-        . $address['city'] . ", " . $address['postal_code'] . "\n"
-    	. "\n"
-    	. "Transaction: " . $purchase[2]['attributes']['id'] . "\n\n"
-    	// . "Description des items:\n"
-    	. $product_info . "\n\n"
-    	. t("Authorization:") . " " . $purchase[42]['value'] . "\n"
-    	. $receipt_full . "\n"
-    	. t('General Terms and Conditions') . ":\n"
-    	. "FIXME" // "http://oxfam.qc.ca/" . i18n_get_lang() . "/conditions/termes" // [ML] FIXME, should be in config variable
-        . "\n\n"
+      $params['receipt_desjardins'] = "Transaction: " . $invoice_id . "\n"
+    	. t("Authorization:") . " " . $purchase['authorization_no'] . "\n\n"
     	. $receipt;
-    
-      $params['receipt_desjardins'] = $receipt_full;
-      $params['trxn_id'] = $invoice_id;
 
+      if (function_exists('drupal_set_message')) {
+        drupal_set_message('<pre>' . $params['receipt_desjardins'] . '</pre>');
+      }
+    
       db_query("INSERT INTO {civicrmdesjardins_receipt (trx_id, receipt, timestamp, ip)
                 VALUES (:trx_id, :receipt, :timestamp, :ip)",
-                array(':trx_id' => $invoice_id, ':receipt' => $receipt_full, ':timestamp' => time(), ':ip' => $params['ip_address']));
+                array(':trx_id' => $invoice_id, ':receipt' => $params['receipt_desjardins'], ':timestamp' => time(), ':ip' => $params['ip_address']));
 
       return $params;
     }
@@ -397,9 +324,10 @@ class org_civicrm_payment_desjardins extends CRM_Core_Payment {
 	$response = curl_exec($ch);
 	curl_close($ch);
 
-        $this->djLog($id_trx, utf8_encode($response), 'dj_login response');
+        $r = new CRM_Core_Payment_Desjardins_Response('Login', $response);
+        $this->djLog($id_trx, utf8_encode($response), 'dj_login response', $r->isError());
 
-	return $response;
+	return $r;
     }
 
     /**
@@ -538,51 +466,213 @@ class org_civicrm_payment_desjardins extends CRM_Core_Payment {
 }
 
 class CRM_Core_Payment_Desjardins_Response {
-	var $responseData;
-	var $currentTag;
-	var $parser;
-	var $error;
-	var $errno;
+  var $responseData;
+  var $currentTag;
+  var $parser;
+  var $stage; // for debug only (description of the response we are parsing)
+  var $error; // boolean
+  var $errno; // error code
+  var $errstr; // error message
 
-	function startHandler ($parser, $tag, $attrs) {
-		$this->currentTag = $tag;
+  function CRM_Core_Payment_Desjardins_Response($stage, $xmlString) {
+    $this->responseData = array();
+    $this->stage = $stage; // Login or Payment
+    $this->error = false;
+    $this->errno = 0;
+    $this->errstr = 'n/a';
 
-		if ($tag == 'trx') {
-			$this->responseData['trx'] = $attrs;
-		}
+    $startHandler = "startHandler" . $stage;
+    $endHandler   = "endHandler"; // same for all
 
-		if ($tag == 'error') {
-			$this->error = TRUE;
-		}
-	}
+    $this->parser = xml_parser_create();
+    xml_parser_set_option($this->parser, XML_OPTION_CASE_FOLDING,0);
+    xml_parser_set_option($this->parser, XML_OPTION_TARGET_ENCODING,"UTF-8");
+    xml_set_object($this->parser, $this);
+    xml_set_element_handler($this->parser, $startHandler, $endHandler);
+    xml_set_character_data_handler($this->parser, "characterHandler");
+    xml_parse($this->parser, $xmlString);
+    xml_parser_free($this->parser);
+  }
 
-	function endHandler ($parser, $tag) {
-		$this->currentTag = 'none';
-	}
+  /**
+   * Login response handler.
+   *
+   * A typical success response is as follows:
+   * <response>
+   *   <merchant id="123456" key="12312312312312312312312312312312">
+   *     <login>
+   *       <trx id="123456789" key="34534534535434534534534534534534"/>
+   *     </login>
+   *   </merchant>
+   * </response>
+   *
+   * Typical error responses:
+   * Some fields were incorrectly formatted:
+   * <response>
+   *   <error>
+   *     <code>WX03</code>
+   *     <message><![CDATA[ Validation Error ]]></message>
+   *   </error>
+   * </response>
+   *
+   */
+  function startHandlerLogin($parser, $tag, $attrs) {
+    $this->currentTag = $tag;
 
-	function characterHandler($parser, $data) {
-		if ($this->error && $this->currentTag == 'code') {
-			$this->errno = $data;
-		}
-	}
+    if ($tag == 'trx') {
+      $this->responseData['trx'] = $attrs; // array with id and key
+    }
 
-	function getData() {
-		return $this->responseData;
-	}
+    if ($tag == 'error') {
+      $this->error = TRUE;
+    }
+  }
 
-	function CRM_Core_Payment_Desjardins_Response($xmlString) {
-		$this->responseData = array();
-		$this->error = false;
-		$this->errno = 0;
+  /**
+   * Payment response handler.
+   *
+   * A typical success response is as follows:
+   * <response input="xml">
+   *   <merchant id="123456">
+   *     <transaction id="34534534534534534534534534534534" currency="CAD" currencyText="CAD $ " approved="yes">
+   *       <terminal_id>05123456</terminal_id>
+   *       <urls>
+   *         <url name="success">
+   *           <path>NotUse</path>
+   *           <parameters>
+   *             <parameter name="TrxId">1234567890</parameter>
+   *           </parameters>
+   *         </url>
+   *       </urls>
+   *       <ecr_number>05987651</ecr_number>
+   *       <amount>1000</amount>
+   *       <language>FR</language>
+   *       <card_holder_name>John Doe</card_holder_name>
+   *       <date>12/01/06 10:14:24</date>
+   *       <effective_date>120107</effective_date>
+   *       <transaction_code>0</transaction_code>
+   *       <condition_code>1</condition_code>
+   *       <iso_code>00</iso_code>
+   *       <host_code>000</host_code>
+   *       <action_code>1</action_code>
+   *       <card_type>VISA</card_type>
+   *       <batch_no>001</batch_no>
+   *       <sequence_no>0010010111</sequence_no>
+   *       <process_info>T@1</process_info>
+   *       <authorization_no>101123</authorization_no>
+   *       <receipt_text>APPROUVEE - MERCI</receipt_text>
+   *       <receipt><![CDATA[0RELEVE DE TRANSACTION/TRANSACTION RECORD   
+   *         0
+   *         0TPVEV000001  MARCH05123450
+   *         0          ORG NAME
+   *         0          1234 ADDRESS
+   *         0          MONTREAL, QC
+   *         0
+   *         0Carte/Card:VISA
+   *         0No.    45** **** **** 0990 14/10
+   *         0
+   *         0Seq.: 0011  Lot/Batch: 001
+   *         02012/01/06  10:14  T@1
+   *         0
+   *         0ACHAT/PURCHASE         $10.00
+   *         0AUTOR./AUTHOR.: 101234
+   *         0
+   *         0
+   *         0             00 APPROUVEE - MERCI
+   *         
+   *         ]]>
+   *       </receipt>
+   *     </transaction>
+   *   </merchant>
+   * </response>
+   *
+   * ERROR:
+   * <response input="xml">
+   *   <merchant id="123456">
+   *     <transaction id="99c6f1790c608033c5193dcf6f5b08a8" currency="CAD" currencyText="CAD $ " approved="no">
+   *       <terminal_id>05123450</terminal_id>
+   *       <ecr_number>05123460</ecr_number>
+   *       <language>FR</language>
+   *       <card_holder_name>John Doe</card_holder_name>
+   *       <date>12/01/06 11:38:50</date>
+   *       <transaction_code>0</transaction_code>
+   *       <condition_code>117</condition_code>
+   *       [...]
+   *       <receipt_text>TRANSACTION NON COMPLETEE</receipt_text>
+   *       <receipt><![CDATA[0RELEVE DE TRANSACTION/TRANSACTION RECORD
+   *         0
+   *         0TPVEV000001  MARCH05028430
+   *         0          DEVELOPPEMENTETPAIX
+   *         0          1425 BOUL RENE-LEVES
+   *         0          MONTREAL, QC
+   *         0
+   *         0Carte/Card:
+   *         0No.    45** **** **** 0990 01/12
+   *         0
+   *         0Seq.:       Lot/Batch:
+   *          12012/01/06  11:38  T@1
+   *         1
+   *         1ACHAT/PURCHASE          $0.00
+   *         1AUTOR./AUTHOR.:
+   *         1
+   *         1           XX TRANSACTION NON COMPLETEE
+   *        ]]>
+   *       </receipt>
+   *     </transaction>
+   *   </merchant>
+   * </response>
+   */
+  function startHandlerPayment($parser, $tag, $attrs) {
+    $this->currentTag = $tag;
 
-		$this->parser = xml_parser_create();
-		xml_parser_set_option($this->parser, XML_OPTION_CASE_FOLDING,0);
-		xml_parser_set_option($this->parser, XML_OPTION_TARGET_ENCODING,"UTF-8");
-		xml_set_object($this->parser, $this);
-		xml_set_element_handler($this->parser, "startHandler", "endHandler");
-		xml_set_character_data_handler($this->parser, "characterHandler");
-		xml_parse($this->parser, $xmlString);
-		xml_parser_free($this->parser);
-	}
+    if ($tag == 'transaction') {
+      $this->responseData['transaction'] = $attrs['id'];
+      $this->responseData['currency'] = $attrs['currency'];
+      $this->responseData['currencyText'] = $attrs['currencyText'];
+
+      if ($attrs['approved'] == 'no') {
+        $this->error = TRUE;
+      }
+    }
+
+    if ($tag == 'merchant') {
+      $this->responseData['merchant'] = $attrs['id'];
+    }
+
+    if ($tag == 'error') {
+      $this->error = TRUE;
+    }
+  }
+
+  // Common to both Login and Payment, since not many differences
+  function endHandler($parser, $tag) {
+    $this->currentTag = 'none';
+  }
+
+  // Common to both Login and Payment, since not many differences
+  function characterHandler($parser, $data) {
+    if ($this->error && $this->currentTag == 'code') {
+      $this->errno = $data;
+    }
+
+    if ($this->error && $this->currentTag == 'message') {
+      $this->errstr = $data;
+    }
+
+    // put everything in an associative array
+    $this->responseData[$this->currentTag] = $data;
+  }
+
+  function getData() {
+    return $this->responseData;
+  }
+
+  function isError() {
+    return $this->error;
+  }
+
+  function getErrorMessage() {
+    return $this->errno . ': ' . $this->errstr;
+  }
 }
 
