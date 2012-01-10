@@ -37,11 +37,13 @@ function civicrmdesjardins_menu() {
  * Receives the confirmation request from Desjardins using POST
  */
 function civicrmdesjardins_validate() {
+  if (! isset($GLOBALS['HTTP_RAW_POST_DATA'])) {
+    echo 'Error: validation request not found';
+    drupal_exit();
+  }
+
   $data_received = stripslashes($GLOBALS['HTTP_RAW_POST_DATA']);
   $data_received = strstr($data_received,'<');
-
-watchdog('civicrmdesjardins', 'POST: ' . print_r($_POST, 1));
-watchdog('civicrmdesjardins', 'data: ' . print_r($data_received, 1));
 
   $arr_values = '';
   $index = '';
@@ -53,8 +55,9 @@ watchdog('civicrmdesjardins', 'data: ' . print_r($data_received, 1));
   xml_parser_free($xml_parser);
 
   $transactions_info = civicrmdesjardins_parse_transaction($arr_values);
-  civicrmdesjardins_send_confirmation($transactions_info);
+  civicrmdesjardins_logxml($transaction_info['transaction_id'], $data_received, 'confirm request');
 
+  civicrmdesjardins_send_confirmation($transactions_info);
   drupal_exit();
 }
 
@@ -167,6 +170,8 @@ function civicrmdesjardins_send_confirmation($transaction_info) {
   header('Cache-Control: no-cache, must-revalidate'); // HTTP/1.1
   header('Expires: Mon, 26 Jul 1997 05:00:00 GMT'); // Date in the past
 
+  // TODO: this should probably check that the transaction
+  // is really being processed
   $response = '<?xml version="1.0" encoding="ISO-8859-15"?>'."\n";
   $response .= '<response>' . "\n";
   $response .= '  <merchant id="' . $transaction_info['merchant_id'] . '">' . "\n";
@@ -174,6 +179,22 @@ function civicrmdesjardins_send_confirmation($transaction_info) {
   $response .= '  </merchant>'."\n";
   $response .= '</response>'."\n";
 
+  civicrmdesjardins_logxml($transaction_info['transaction_id'], $response, 'confirm response');
   echo $response;
 }
+
+function civicrmdesjardins_logxml($trx_id, $message, $type, $fail = 0) {
+  $time = time();
+  $message = preg_replace('/<number>(\d{2})\d{10}(\d{4})<\/number>/', '<number>\1**********\2</number>', $message);
+
+  if (! $trx_id) {
+    watchdog('civicrmdesjardins', 'No trx_id found, cannot write the log: ' . check_plain($message), 'error');
+    return;
+  }
+
+  db_query("INSERT INTO {civicrmdesjardins_log} (trx_id, timestamp, type, message, fail, ip)
+            VALUES (:trx_id, :timestamp, :type, :message, :fail, :ip)",
+            array(':trx_id' => $trx_id, ':timestamp' => $time, ':type' => $type, ':message' => $message, ':fail' => $fail, ':ip' => $_SERVER['REMOTE_ADDR']));
+}
+
 
