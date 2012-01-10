@@ -9,6 +9,13 @@ INSTALLATION:
 
 See the INSTALL.txt file.
 
+TODO:
+----
+
+* UI to configure the civicrmdesjardins_tos_text and civicrmdesjardins_tos_url variables.
+* More hook_requirements to have a clearer checklist of what needs to be done before having
+  a site validated by Desjardins (based on the auto-evaluation).
+
 
 MORE INFORMATION:
 ----------------
