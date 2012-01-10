@@ -31,33 +31,6 @@
 */
 
 /*
- * How to use this payment gateway:
- * 
- * Do the following SQL queries:
- *
- * 1- The following query is necessary so that CiviCRM can "see" the gateway:
- * 
- * INSERT INTO civicrm_payment_processor_type (
- *      domain_id, name, title, description, 
- *      is_active, is_default, 
- *      user_name_label, password_label, class_name, 
- *      url_site_test_default, url_site_default, 
- *      billing_mode, is_recur)   
- *   VALUES (1, 'Desjardins', 'Desjardins', NULL,
- *      1, 0, 
- *      'Merchant ID', 'Merchant Key', 'Payment_Desjardins', 
- *      'https://www.labdevtrx3.com/catch', 'https://epaiementsecurise.desjardins.com/catch', 
- *      1, 0);
- * 
- * To display the receipt to the user:
- * 
- * * Edit: CRM/Contribute/Form/Contribution/ThankYou.php
- *   in function buildQuickForm() below: $params = $this->_params;
- *   add: $this->assign( 'receipt_desjardins', $this->_params['receipt_desjardins']);
- * 
- * * Edit: CRM/Contribute/Form/Contribution/ThankYou.tpl
- *   add: <pre>{$receipt_desjardins}</pre> where you want the receipt to be displayed
- *
  * TESTING: use 4530911100000990
  */
 
