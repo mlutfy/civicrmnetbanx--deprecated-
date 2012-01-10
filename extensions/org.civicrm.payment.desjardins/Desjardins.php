@@ -437,6 +437,7 @@ class org_civicrm_payment_desjardins extends CRM_Core_Payment {
         }
     }
 
+    // use only civicrmdesjardins_logxml() from civicrmdesjardins.module ?
     function djLog($trx_id, $message, $type, $fail = 0) {
       #if ($this->CIVICRM_DESJARDINS_LOG) {
         $time = time();
