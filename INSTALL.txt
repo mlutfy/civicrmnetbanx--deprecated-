@@ -36,6 +36,11 @@ INSTALLATION:
   otherwise you will have to add it manually to your receipt footer.
   There is no UI for this yet, use drush vset.
 
+* Either set your currency to "$ CAD" (but that is rather ugly), or add the following text
+  at the end of the financial information of the Contribution/{Main,Confirm,ThankYou}.tpl:
+  English: "All amounts are in canadian dollars ($ CAD)".
+  French: "Tous les montants sont en dollars canadiens ($ CAD)".
+
 CAVEATS:
 -------
 
