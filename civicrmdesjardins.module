@@ -6,6 +6,7 @@
 function civicrmdesjardins_init() {
   if (arg(0) == 'civicrm' && arg(1) == 'contribute') {
     drupal_add_css(drupal_get_path('module', 'civicrmdesjardins') . '/civicrmdesjardins.css');
+    drupal_add_js(drupal_get_path('module', 'civicrmdesjardins') . '/civicrmdesjardins.js');
   }
 }
 
@@ -73,7 +74,7 @@ function civicrmdesjardins_civicrm_buildForm($formName, &$form) {
 
     foreach ($elements as $key => $val) {
       $text = $elements[$key]->getText();
-      $text = preg_replace('/\.00 \$/', '$', $text);
+      $text = preg_replace('/\.00 \$/', ' $', $text);
       $elements[$key]->setText($text);
     }
   }
