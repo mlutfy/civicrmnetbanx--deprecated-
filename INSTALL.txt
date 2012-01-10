@@ -26,6 +26,16 @@ INSTALLATION:
 * In CiviCRM > Admin > Configure > Domain information (civicrm/admin/domain?action=update&reset=1),
   make sure you have set correct values for the organisation name, e-mail and postal address.
 
+* Create a custom field for contribution with a checkbox field "Terms and conditions". Include
+  it in a footer profile for the contribution page, and make it mandatory. The help text for
+  the field should link (and open in a new window) to your site's terms and conditions (site
+  privacy policy, terms of use, refund/cancellation policy, shipping policy).
+
+* In each contribution form, configure the "receipt text" so that it displays your organisation
+  name, postal address, phone number and e-mail. It should also include a footer text with a
+  link to your website's terms and conditions, as well as explicitely mention the refund
+  policy (even if only "all transactions are final, no refunds").
+
 CAVEATS:
 -------
 
