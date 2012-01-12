@@ -46,6 +46,17 @@
   left: 155px;
 }
 
+#crm-container .crm-contribution-main-form-block .credit_card_type-section .civicrmdesjardins-cclogo .civicrmdesjardins-cclogo-amex {
+  background: url(images/amex.gif) no-repeat 0 0 transparent;
+  text-indent: -20000px;
+  position: absolute;
+  display: block;
+  width: 37px;
+  height: 21px;
+  top: 2px;
+  left: 195px;
+}
+
 #crm-container .crm-contribution-main-form-block .credit_card_type-section .civicrmdesjardins-cclogo span {
   display: none;
 }
