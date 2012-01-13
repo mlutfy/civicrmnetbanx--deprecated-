@@ -162,4 +162,11 @@ function civicrmdesjardins_logxml($trx_id, $message, $type, $fail = 0) {
             array(':trx_id' => $trx_id, ':timestamp' => $time, ':type' => $type, ':message' => $message, ':fail' => $fail, ':ip' => $_SERVER['REMOTE_ADDR']));
 }
 
+/**
+ * Returns the Desjardins receipt for the transaction
+ * Add this in your ThankYou.tpl : {$trxn_id|civicrmdesjardins_receipt}
+ */
+function smarty_modifier_civicrmdesjardins_receipt($trx_id) {
+  return db_query('SELECT receipt FROM {civicrmdesjardins_receipt} WHERE trx_id = :trx_id', array(':trx_id' => $trx_id))->fetchField();
+}
 
