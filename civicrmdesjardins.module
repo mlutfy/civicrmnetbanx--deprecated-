@@ -45,19 +45,18 @@ function civicrmdesjardins_validate() {
   $data_received = stripslashes($GLOBALS['HTTP_RAW_POST_DATA']);
   $data_received = strstr($data_received,'<');
 
-  $arr_values = '';
-  $index = '';
+  // load the Desjardins extention
+  civicrm_initialize(TRUE);
+  require_once 'CRM/Core/Payment.php';
+  module_load_include('php', 'civicrmdesjardins', 'extensions/org.civicrm.payment.desjardins/Desjardins');
 
-  $xml_parser = xml_parser_create();
-  xml_parser_set_option($xml_parser, XML_OPTION_CASE_FOLDING, 0);
-  xml_parser_set_option($xml_parser, XML_OPTION_SKIP_WHITE, 0);
-  xml_parse_into_struct($xml_parser, $data_received, $arr_values, $index);
-  xml_parser_free($xml_parser);
+  $r = new CRM_Core_Payment_Desjardins_Response('Confirm', $data_received);
+  $txinfo = $r->getData();
 
-  $transactions_info = civicrmdesjardins_parse_transaction($arr_values);
-  civicrmdesjardins_logxml($transaction_info['transaction_id'], $data_received, 'confirm request');
+  civicrmdesjardins_logxml($txinfo->merchant->confirm->transaction['id'], $data_received, 'confirm request');
+  civicrmdesjardins_send_confirmation($txinfo);
 
-  civicrmdesjardins_send_confirmation($transactions_info);
+  unset($r);
   drupal_exit();
 }
 
@@ -131,41 +130,7 @@ function civicrmdesjardins_civicrm_tokenValues( &$details, &$contactIDs ) {
   $details['contribution.desjardins_receipt'] = $receipt;
 }
 
-
-/* ************************************ */
-
-function civicrmdesjardins_parse_transaction($xml_in_array) {
-  $return_transaction = array();
-  $array_transaction_info = array('file_format'=>'xml');
-
-  foreach ($xml_in_array as $xml_node_object) {
-    switch ($xml_node_object['tag']) {
-      case 'merchant':
-        $array_transaction_info['merchant_id'] = $xml_node_object['attributes']['id'];
-        break;
-    
-      case 'transaction':
-        if ($xml_node_object['level'] == 3 && $xml_node_object['type'] == 'open') {
-          $array_transaction_info['transaction_id'] = $xml_node_object['attributes']['id'];
-          $array_transaction_info['transaction_currency'] = $xml_node_object['attributes']['currency'];
-          $array_transaction_info['transaction_currencyText'] = $xml_node_object['attributes']['currencyText'];
-          $array_transaction_info['transaction_approved'] = $xml_node_object['attributes']['approved'];
-        }
-        elseif ($xml_node_object['level'] == 4 && $xml_node_object['type'] == 'open') {
-          $array_transaction_info['transaction_id'] = $xml_node_object['attributes']['id'];
-        }
-
-        if ($xml_node_object['level'] == 4 && $xml_node_object['type'] == 'close') {
-          $return_transaction[] = $array_transaction_info;
-        }
-        break;
-    }
-  }
-
-  return $return_transaction;
-}
-
-function civicrmdesjardins_send_confirmation($transaction_info) {
+function civicrmdesjardins_send_confirmation($tx) {
   header('Content-Type: text/xml');
   header('Cache-Control: no-cache, must-revalidate'); // HTTP/1.1
   header('Expires: Mon, 26 Jul 1997 05:00:00 GMT'); // Date in the past
@@ -174,12 +139,12 @@ function civicrmdesjardins_send_confirmation($transaction_info) {
   // is really being processed
   $response = '<?xml version="1.0" encoding="ISO-8859-15"?>'."\n";
   $response .= '<response>' . "\n";
-  $response .= '  <merchant id="' . $transaction_info['merchant_id'] . '">' . "\n";
-  $response .= '    <transaction id="' . $transaction_info['transaction_id'] . '" accepted="yes" />' . "\n";
+  $response .= '  <merchant id="' . $tx->merchant['id'] . '">' . "\n";
+  $response .= '    <transaction id="' . $tx->merchant->confirm->transaction['id'] . '" accepted="yes" />' . "\n";
   $response .= '  </merchant>'."\n";
   $response .= '</response>'."\n";
 
-  civicrmdesjardins_logxml($transaction_info['transaction_id'], $response, 'confirm response');
+  civicrmdesjardins_logxml($tx->merchant->confirm->transaction['id'], $response, 'confirm response');
   echo $response;
 }
 
