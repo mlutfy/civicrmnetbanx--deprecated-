@@ -20,6 +20,24 @@ INSTALLATION:
   and add the token "Desjardins CC receipt", i.e. {contribution.desjardins_receipt} in the 
   "credit card information" section of the template (both HTML and text formats).
 
+* Override the templates/CRM/Contribute/Form/Contribution/ThankYou.tpl template and add
+  the following: {$trxn_id|civicrmdesjardins_receipt} in order to show the credit card
+  transaction receipt. (TODO: submit a patch to CiviCRM so that we can have this in core?)
+
+  For example:
+
+    <div class="crm-section no-label credit_card_details-section">
+{*
+      <div class="content">{$credit_card_type}</div>
+      <div class="content">{$credit_card_number}</div>
+      <div class="content">{ts}Expires{/ts}: {$credit_card_exp_date|truncate:7:''|crmDate}</div>
+*}
+      <div class="content">
+        <pre>{$trxn_id|civicrmdesjardins_receipt}
+      </div>
+      <div class="clear"></div>
+    </div>
+
 * In the receipt template, add a section with the "Terms and conditions", including
   your privacy policy, shipping fees (even if there are none) and refund policy.
 
@@ -40,6 +58,11 @@ INSTALLATION:
   at the end of the financial information of the Contribution/{Main,Confirm,ThankYou}.tpl:
   English: "All amounts are in canadian dollars ($ CAD)".
   French: "Tous les montants sont en dollars canadiens ($ CAD)".
+
+* Desjardins requires that the name on the receipts be the formal organisation name (matching
+  the name on their records). By default the domain name will be displayed (from the "domain
+  information"). You can override it by setting the civicrmdesjardins_orgname Drupal variable.
+
 
 CAVEATS:
 -------
