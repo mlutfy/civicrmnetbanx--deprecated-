@@ -63,6 +63,27 @@ INSTALLATION:
   the name on their records). By default the domain name will be displayed (from the "domain
   information"). You can override it by setting the civicrmdesjardins_orgname Drupal variable.
 
+* CRM-9491 : credit card information was not deleted from the session upon successful transaction.
+  Re-apply the patch to ThankYou.php as described in the issue, until it is resolved.
+
+During the validation process by Desjardins:
+
+* Since the test environment of the payment gateway does not provide explicit numbers to
+  trigger invalid transactions, you must disable the credit card number checks done by
+  CiviCRM *only during the validation by Desjardins*.
+
+  In Contribute/Form/Contribution/Main.php, function formRule(), comment out the following
+  block of code:
+
+/* 
+    if ( CRM_Utils_Array::value( 'credit_card_number', $fields ) &&
+         ! CRM_Utils_Rule::creditCardNumber( $fields['credit_card_number'], $fields['credit_card_type'] ) ) {
+        $errors['credit_card_number'] = ts( 'Please enter a valid Credit Card Number' );
+    }
+*/
+
+  Once the site has been validated, you can re-enable (uncomment) the code.
+
 
 CAVEATS:
 -------
