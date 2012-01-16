@@ -1,6 +1,10 @@
 Hooks and extention for Desjardins payment processor integration in CiviCRM.
+Note that a new version of the payment gateway came out in December 2011 (using
+Optimal Payments by Netbanx).
 
-It integrations with the payment method "without redirection" (process, not notify),
+Currently this code only supports the "old" API.
+
+It integrates with the payment method "without redirection" (process, not notify),
 therefore you will need an SSL certificate on your donation page.
 
 
@@ -25,6 +29,10 @@ TODO:
 MORE INFORMATION:
 ----------------
 
+Technical information about the payment gateway:
+http://www.partenaires-desjardins.com/web/support-technique/documentation.html
+
+More information about this code:
 https://github.com/mlutfy/CiviCRM-Desjardins
 
 (C) 2011-2012 Mathieu Lutfy <mathieu@bidon.ca>
