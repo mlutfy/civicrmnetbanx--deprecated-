@@ -7,6 +7,12 @@ function civicrmdesjardins_init() {
   if (arg(0) == 'civicrm' && arg(1) == 'contribute') {
     drupal_add_css(drupal_get_path('module', 'civicrmdesjardins') . '/civicrmdesjardins.css');
     drupal_add_js(drupal_get_path('module', 'civicrmdesjardins') . '/civicrmdesjardins.js');
+
+    // In Chromium, without the "no-store" directive, the browser still keeps some data
+    // in cache, although mainly just the confirmation page. With no-store, as soon as the
+    // user hits the "Back" button, he goes back to a new empty form.
+    // Also, $this->controller->reset( ); did not seem to delete the user email from the form.
+    drupal_add_http_header('Cache-Control', 'no-store, no-cache, must-revalidate, post-check=0, pre-check=0', TRUE);
   }
 }
 
@@ -89,8 +95,16 @@ function civicrmdesjardins_civicrm_buildForm($formName, &$form) {
     //  
     // [ML] removing it causes the form to loop back without an error message (?!)
     // $form->removeElement('cvv2');
-    $cvv2 =& $form->getElement('cvv2');
-    $cvv2->setValue('000');
+    if ($form->elementExists('cvv2')) {
+      $cvv2 =& $form->getElement('cvv2');
+      $cvv2->setValue('000');
+    }
+  }
+
+  if ($formName == 'CRM_Contribute_Form_Contribution_ThankYou') {
+    // Clear out some of the sensitive fields to avoid a replay attack
+    // i.e. after a successful transaction, the user can go "Back" and
+    // do the same transaction again.
   }
 }
 

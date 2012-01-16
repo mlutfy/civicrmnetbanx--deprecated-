@@ -236,7 +236,7 @@ class org_civicrm_payment_desjardins extends CRM_Core_Payment {
 
       if ($purchaseresp->isError() || (! $purchase->merchant->transaction->receipt)) {
         return self::error(t("Error") . ": " . $purchaseresp->getErrorMessage()
-          . '<pre>' . $this->generateReceiptFailed($invoice_id, $amount, $purchase) . '</pre>'
+          . '<pre>' . $this->generateReceipt($invoice_id, $amount, $purchase, FALSE) . '</pre>'
           . '<div class="civicrm-dj-retrytx">' . t("The transaction was not approved. Please verify your credit card number and expiration date.") . '</div>');
       }
 
@@ -405,13 +405,18 @@ class org_civicrm_payment_desjardins extends CRM_Core_Payment {
 
     /**
      * Generates a human-readable receipt using the purchase response from Desjardins.
+     * trx_id : CiviCRM transaction ID
+     * amount : numeric amount of the transcation
+     * purchase : response from Desjardins (parsed in an array)
+     * success : whether this is a receipt for a successful or failed transaction (not really used)
      */
-    function generateReceipt($trx_id, $amount, $purchase) {
+    function generateReceipt($trx_id, $amount, $purchase, $success = TRUE) {
       $tx = $purchase->merchant->transaction;
 
       $receipt = $tx->receipt;
       $receipt = preg_replace("/^0/", "", $receipt);
       $receipt = preg_replace("/\n0/", "\n", $receipt);
+      $receipt = preg_replace("/\n1/", "\n", $receipt); // in failed transaction receipts
 
       if (function_exists('variable_get')) {
         $tos_url  = variable_get('civicrmdesjardins_tos_url', FALSE);
@@ -427,6 +432,11 @@ class org_civicrm_payment_desjardins extends CRM_Core_Payment {
           $receipt .= wordwrap($tos_text);
         }
       }
+
+      // Add obligatory notes:
+      $receipt .= "\n";
+      $receipt .= t("Prices are in canadian dollars ($ CAD).") . "\n";
+      $receipt .= t("This donation is non-taxable.") . "\n\n";
 
       // Fetch the domain name, but allow to override it (Desjardins requires that it
       // be the exact business name of the org, and sometimes we use shorter names.
@@ -445,51 +455,6 @@ class org_civicrm_payment_desjardins extends CRM_Core_Payment {
         . "Transaction: " . $trx_id . "\n"
     	. t("Authorization:") . " " . $tx->{'authorization_no'} . "\n"
         . t("Reference:") . " " . $tx->{'sequence_no'} . ' ' . $tx->{'terminal_id'} . "\n\n"
-    	. $receipt;
-
-      return $receipt;
-    }
-
-// TODO
-    function generateReceiptFailed($trx_id, $amount, $purchase) {
-      $tx = $purchase->merchant->transaction;
-
-      $receipt = $tx->{'receipt'};
-      $receipt = preg_replace("/^0/", "", $receipt);
-      $receipt = preg_replace("/\n0/", "\n", $receipt);
-
-      if (function_exists('variable_get')) {
-        $tos_url  = variable_get('civicrmdesjardins_tos_url', FALSE);
-        $tos_text = variable_get('civicrmdesjardins_tos_text', FALSE);
-
-        if ($tos_url) {
-          $receipt .= "\n\n";
-          $receipt .= t("Terms and conditions:") . "\n";
-          $receipt .= $tos_url . "\n\n";
-        }
-
-        if ($tos_text) {
-          $receipt .= wordwrap($tos_text);
-        }
-      }
-
-      // Fetch the domain name, but allow to override it (Desjardins requires that it
-      // be the exact business name of the org, and sometimes we use shorter names.
-      $org_name = variable_get('civicrmdesjardins_orgname', NULL);
-
-      if (! $org_name) {
-        $results = civicrm_api("Domain","get", array ('version' =>'3'));
-        $org_name = $results['values'][1]['name'];
-      }
-
-      // Show the card owner next to the card number
-      $cardholder = t('Card Holder Name: @name', array('!name' => $purchase['card_holder_name']));
-      $receipt = preg_replace("/\nNo. /", $cardholder . "\nNo. ", $receipt);
-
-      $receipt = $org_name . "\n\n"
-        . "Transaction: " . $trx_id . "\n"
-    	. t("Authorization:") . " " . $purchase['authorization_no'] . "\n"
-        . t("Reference:") . " " . $purchase['sequence_no'] . ' ' . $purchase['terminal_id'] . "\n\n"
     	. $receipt;
 
       return $receipt;
@@ -523,8 +488,8 @@ class CRM_Core_Payment_Desjardins_Response {
     }
     elseif ($data->merchant->transaction['approved'] == 'no') {
       $this->error  = TRUE;
-      $this->errno  = $data->merchant->transaction->{'receipt_text'};
-      $this->errstr = $data->merchant->transaction->{'receipt'};
+      $this->errno  = $data->merchant->transaction->{'condition_code'};
+      $this->errstr = $data->merchant->transaction->{'receipt_text'};
     }
 
     $this->data = $data;
