@@ -77,13 +77,15 @@ function civicrmdesjardins_civicrm_buildForm($formName, &$form) {
     //
     // Format amount 10.00$ to 10$
     //
-    $amounts  =& $form->getElement('amount');
-    $elements =& $amounts->getElements();
-
-    foreach ($elements as $key => $val) {
-      $text = $elements[$key]->getText();
-      $text = preg_replace('/\.00 \$/', ' $', $text);
-      $elements[$key]->setText($text);
+    if ($form->elementExists('amount')) {
+      $amounts  =& $form->getElement('amount');
+      $elements =& $amounts->getElements();
+  
+      foreach ($elements as $key => $val) {
+        $text = $elements[$key]->getText();
+        $text = preg_replace('/\.00 \$/', ' $', $text);
+        $elements[$key]->setText($text);
+      }
     }
   }
 
