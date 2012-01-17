@@ -235,9 +235,12 @@ class org_civicrm_payment_desjardins extends CRM_Core_Payment {
       $purchase = $purchaseresp->getData();
 
       if ($purchaseresp->isError() || (! $purchase->merchant->transaction->receipt)) {
-        return self::error(t("Error") . ": " . $purchaseresp->getErrorMessage()
-          . '<pre>' . $this->generateReceipt($invoice_id, $amount, $purchase, FALSE) . '</pre>'
-          . '<div class="civicrm-dj-retrytx">' . t("The transaction was not approved. Please verify your credit card number and expiration date.") . '</div>');
+        // this would be cleaner to just call self:error($purchaseresp)
+        // and leave it to getErrorMessage() to generate the correct message
+        // depending on the phase of the transaction (i.e. whether we need a receipt or not)
+        return self::error($purchaseresp->getErrorMessage('short')
+          . '<div class="civicrm-dj-retrytx">' . t("The transaction was not approved. Please verify your credit card number and expiration date.") . '</div>'
+          . '<pre>' . $this->generateReceipt($invoice_id, $amount, $purchase, FALSE) . '</pre>', '9002-' . $purchaseresp->getResponseCode());
       }
 
       // Success
@@ -346,14 +349,18 @@ class org_civicrm_payment_desjardins extends CRM_Core_Payment {
       return FALSE;
     }
 
-    function &error( $error = null ) {
+    /**
+     * error : either an object that implements getResponseCode() and getErrorMessage, or a string.
+     * errnum : if the error is a string, this should have the error number.
+     */
+    function &error( $error = null, $errnum = 9002 ) {
         $e =& CRM_Core_Error::singleton( );
         if ( is_object($error) ) {
             $e->push( $error->getResponseCode( ),
                       0, null,
-                      $error->getMessage( ) );
+                      $error->getErrorMessage( ) );
         } elseif ( is_string($error) ) {
-            $e->push( 9002,
+            $e->push( $errnum,
                       0, null,
                       $error );
         } else {
@@ -503,8 +510,19 @@ class CRM_Core_Payment_Desjardins_Response {
     return $this->error;
   }
 
-  function getErrorMessage() {
-    return $this->errno . ': ' . $this->errstr;
+  function getErrorMessage($format = 'full') {
+    if ($format == 'full') {
+      return $this->errno . ': ' . $this->errstr;
+    }
+    else {
+      return $this->errstr;
+    }
+  }
+
+  // inconsistant: errno vs response code. we should probably just have
+  // a response code, and rely on isError() to know if it's an error.
+  function getResponseCode() {
+    return $this->errno;
   }
 
   // TODO: place this elsewhere.. was here before because
