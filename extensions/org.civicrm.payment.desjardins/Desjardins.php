@@ -88,6 +88,18 @@ class org_civicrm_payment_desjardins extends CRM_Core_Payment {
 
     	$amount = intval($amount * 100); // Ex: 15.24$ => 1524
 
+        require_once 'CRM/Utils/System.php';
+        $lcMessages = CRM_Utils_System::getUFLocale();
+
+        if ($lcMessages) {
+          $lcMessages = substr($lcMessages, 0, 2);
+        }
+
+        // don't take any risks, otherwise the transaction will fail
+        if (! ($lcMessages == 'fr' || $lcMessages == 'en')) {
+          $lcMessages = 'fr';
+        }
+
         // Clean up CC number
         $cc_num = preg_replace('/[^0-9]/', '', $cc_num);
 
@@ -100,7 +112,7 @@ class org_civicrm_payment_desjardins extends CRM_Core_Payment {
     	$xmlData .=     '<transactions>';
     	$xmlData .=       '<transaction id="' . $tx_id . '" key="' . $tx_key . '" type="purchase" currency="CAD" currencyText="$CAD">';
     	$xmlData .=         '<amount>' . $amount . '</amount>';
-    	$xmlData .=         '<language>fr</language>'; // FIXME hardcoded language
+    	$xmlData .=         '<language>' . $lcMessages . '</language>';
     	$xmlData .=         '<card>';
     	$xmlData .=           '<number>' . $cc_num . '</number>';
     	$xmlData .=           '<holder_name>' . $cc_name . '</holder_name>';
