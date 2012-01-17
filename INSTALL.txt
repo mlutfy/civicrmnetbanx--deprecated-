@@ -35,6 +35,11 @@ INSTALLATION:
       <div class="content">
         <pre>{$trxn_id|civicrmdesjardins_receipt}
       </div>
+      {if $membership_amount and $is_separate_payment}
+        <div class="content">
+          <pre>{$membership_trx_id|civicrmdesjardins_receipt}
+        </div>
+     {/if}
       <div class="clear"></div>
     </div>
 
