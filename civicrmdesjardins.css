@@ -8,6 +8,7 @@
   text-align: right;
   font-size: 70%;
   padding-bottom: 35px;
+  width: 145px;
 }
 
 #crm-container .crm-contribution-main-form-block .credit_card_type-section {
@@ -19,9 +20,9 @@
 }
 
 #crm-container .crm-contribution-main-form-block .credit_card_type-section .civicrmdesjardins-cclogo {
-  display: absolute;
+  position: absolute;
   top: 0;
-  left: 50px;
+  left: 0;
 }
 
 #crm-container .crm-contribution-main-form-block .credit_card_type-section .civicrmdesjardins-cclogo .civicrmdesjardins-cclogo-visa {
