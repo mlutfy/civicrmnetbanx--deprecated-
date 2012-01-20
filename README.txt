@@ -17,9 +17,9 @@ TODO:
 ----
 
 * UI to configure the civicrmdesjardins_tos_text and civicrmdesjardins_tos_url variables.
+  (you can use the 'variable' module to configure them)
 * More hook_requirements to have a clearer checklist of what needs to be done before having
   a site validated by Desjardins (based on the auto-evaluation).
-* Support multi-lingual variables
 * Respect the CiviCRM settings for accepted cards (amex, mastercard) - this is already managed
   via civicrm/admin/options/accept_creditcard?group=accept_creditcard&reset=1
   i.e. do not show the Amex/MC logo if the card is not accepted.
