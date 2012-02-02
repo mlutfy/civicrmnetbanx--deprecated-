@@ -10,14 +10,17 @@
 
       $('#crm-container .crm-contribution-main-form-block .credit_card_type-section .civicrmdesjardins-cclogo-visa').click(function() {
         $('#crm-container .crm-contribution-main-form-block .credit_card_type-section #credit_card_type').val('Visa');
+        $('input#cvv2').val('000');
         return false;
       });
       $('#crm-container .crm-contribution-main-form-block .credit_card_type-section .civicrmdesjardins-cclogo-mc').click(function() {
         $('#crm-container .crm-contribution-main-form-block .credit_card_type-section #credit_card_type').val('MasterCard');
+        $('input#cvv2').val('000');
         return false;
       });
       $('#crm-container .crm-contribution-main-form-block .credit_card_type-section .civicrmdesjardins-cclogo-amex').click(function() {
         $('#crm-container .crm-contribution-main-form-block .credit_card_type-section #credit_card_type').val('Amex');
+        $('input#cvv2').val('0000');
         return false;
       });
     }
