@@ -101,6 +101,30 @@ function civicrmdesjardins_schema() {
         'type' => 'text',
         'not null' => FALSE,
       ),
+      'first_name' => array(
+        'description' => 'Billing first name',
+        'type' => 'varchar',
+        'length' => '64',
+        'not null' => FALSE,
+      ),
+      'last_name' => array(
+        'description' => 'Billing last name',
+        'type' => 'varchar',
+        'length' => '64',
+        'not null' => FALSE,
+      ),
+      'card_type' => array(
+        'description' => 'Credit card type',
+        'type' => 'varchar',
+        'length' => '32',
+        'not null' => FALSE,
+      ),
+      'card_number' => array(
+        'description' => 'Partial credit card number',
+        'type' => 'varchar',
+        'length' => '64',
+        'not null' => FALSE,
+      ),
       'ip' => array(
         'description' => 'IP address of the donor',
         'type' => 'varchar',
@@ -115,6 +139,43 @@ function civicrmdesjardins_schema() {
   return $schema;
 
 }
+
+/**
+ * Implements hook_update_N()
+ */
+function civicrmdesjardins_update_7001() {
+  $fields = array(
+    'first_name' => array(
+      'description' => 'Billing first name',
+      'type' => 'varchar',
+      'length' => '64',
+      'not null' => FALSE,
+    ),
+    'last_name' => array(
+      'description' => 'Billing last name',
+      'type' => 'varchar',
+      'length' => '64',
+      'not null' => FALSE,
+    ),
+    'card_type' => array(
+      'description' => 'Credit card type',
+      'type' => 'varchar',
+      'length' => '32',
+      'not null' => FALSE,
+    ),
+    'card_number' => array(
+      'description' => 'Partial credit card number',
+      'type' => 'varchar',
+      'length' => '64',
+      'not null' => FALSE,
+    ),
+  );
+
+  foreach ($fields as $field => $spec) {
+    db_add_field('civicrmdesjardins_receipt', $field, $spec);
+  }
+}
+
 
 /**
  * Implementation of hook_requirements

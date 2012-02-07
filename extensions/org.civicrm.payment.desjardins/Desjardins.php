@@ -265,9 +265,21 @@ class org_civicrm_payment_desjardins extends CRM_Core_Payment {
       // It would be nice to have something in CiviCRM core in order to handle this.
       $params['receipt_desjardins'] = $this->generateReceipt($invoice_id, $amount, $purchase);
 
-      db_query("INSERT INTO {civicrmdesjardins_receipt} (trx_id, receipt, timestamp, ip)
-                VALUES (:trx_id, :receipt, :timestamp, :ip)",
-                array(':trx_id' => $invoice_id, ':receipt' => $params['receipt_desjardins'], ':timestamp' => time(), ':ip' => $params['ip_address']));
+      db_query("INSERT INTO {civicrmdesjardins_receipt} (trx_id, receipt, first_name, last_name, card_type, card_number, timestamp, ip)
+                VALUES (:trx_id, :receipt, :first_name, :last_name, :card_type, :card_number, :timestamp, :ip)",
+                array(
+                  ':trx_id' => $invoice_id,
+                  ':receipt' => $params['receipt_desjardins'],
+                  ':first_name' => $params['first_name'],
+                  ':last_name' => $params['last_name'],
+                  ':card_type' => $params['credit_card_type'],
+                  ':card_number' => preg_replace('/(\d{2})\d{10}(\d{4})/', '\1**********\2', $params['credit_card_number']),
+                  ':timestamp' => time(),
+                  ':ip' => $params['ip_address'],
+               ));
+
+      // Invoke hook_civicrmdesjardins_success($params, $purchase).
+      module_invoke_all('civicrmdesjardins_success', $params, $purchase);
 
       return $params;
     }
