@@ -23,6 +23,15 @@
         $('input#cvv2').val('0000');
         return false;
       });
+
+      $('#crm-container .crm-contribution-main-form-block .credit_card_type-section select#credit_card_type').change(function() {
+        var cctype = $(this).val();
+        if (cctype == 'Amex') {
+          $('input#cvv2').val('0000');
+        } else {
+          $('input#cvv2').val('000');
+        }
+      });
     }
   }
 })(jQuery);
