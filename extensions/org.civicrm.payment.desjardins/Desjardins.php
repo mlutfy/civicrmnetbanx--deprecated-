@@ -341,7 +341,7 @@ class org_civicrm_payment_desjardins extends CRM_Core_Payment {
         'NT' => array('X'),
         'NS' => array('B'),
         'NU' => array('X'),
-        'ON' => array('K', 'L', 'M', 'P'),
+        'ON' => array('K', 'L', 'M', 'N', 'P'),
         'PE' => array('C'),
         'QC' => array('H', 'J', 'G'),
         'SK' => array('S'),
