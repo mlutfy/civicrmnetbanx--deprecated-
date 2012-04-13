@@ -9,6 +9,7 @@
   font-size: 70%;
   padding-bottom: 35px;
   width: 145px;
+  margin-right: -5em; /* sinon pile sur icones visa/mc */
 }
 
 #crm-container .crm-contribution-main-form-block .credit_card_type-section {
