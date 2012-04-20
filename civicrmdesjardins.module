@@ -133,10 +133,10 @@ function civicrmdesjardins_civicrm_tokenValues( &$details, &$contactIDs ) {
   // not make sense, but leaving the code just in case.
   if ( is_array( $contactIDs ) ) {
     $id_contact = $contactIDs['contact_id'];
-    watchdog('civicrmdesjardins', 'Sending email receipt for contact ID: ' . $id_contact . ' (A)');
+    // watchdog('civicrmdesjardins', 'Sending email receipt for contact ID: ' . $id_contact . ' (A)');
   } else {
     $id_contact = $contactIDs;
-    watchdog('civicrmdesjardins', 'Sending email receipt for contact ID: ' . $id_contact . ' (B)');
+    // watchdog('civicrmdesjardins', 'Sending email receipt for contact ID: ' . $id_contact . ' (B)');
   }
 
   // Fetch the receipt (assume latest)
