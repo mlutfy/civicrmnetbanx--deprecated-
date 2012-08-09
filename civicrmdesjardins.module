@@ -115,9 +115,11 @@ function civicrmdesjardins_civicrm_buildForm($formName, &$form) {
  * expose the "receipt" token to email messages
  */
 function civicrmdesjardins_civicrm_tokens(&$tokens) {
-  $tokens['contribution'] = array(
-    'contribution.desjardins_receipt' => 'Desjardins CC receipt',
-  );
+  if (arg(0) == 'civicrm' && arg(1) == 'contribute') {
+    $tokens['contribution'] = array(
+      'contribution.desjardins_receipt' => 'Desjardins CC receipt',
+    );
+  }
 }
 
 /**
@@ -125,6 +127,10 @@ function civicrmdesjardins_civicrm_tokens(&$tokens) {
  */
 function civicrmdesjardins_civicrm_tokenValues( &$details, &$contactIDs ) {
   $value = array();
+
+  if (! (arg(0) == 'civicrm' && arg(1) == 'contribute')) {
+    return $value;
+  }
 
   // Prepare the contact ID(s) for use in a database query
   //
