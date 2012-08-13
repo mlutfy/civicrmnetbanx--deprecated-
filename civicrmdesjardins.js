@@ -51,14 +51,17 @@
         if (ccnumtype.substr(0, 1) == '3') {
           $('#credit_card_type').val('Amex');
           $('#crm-container .crm-contribution-main-form-block .credit_card_type-section .civicrmdesjardins-cclogo-amex').css('opacity', 1);
+          $('input#cvv2').val('0000');
         }
         else if (ccnumtype.substr(0, 2) >= '51' && ccnumtype.substr(0, 2) <= '55') {
           $('#credit_card_type').val('MasterCard');
           $('#crm-container .crm-contribution-main-form-block .credit_card_type-section .civicrmdesjardins-cclogo-mc').css('opacity', 1);
+          $('input#cvv2').val('000');
         }
         else if (ccnumtype.substr(0, 1) == '4') {
           $('#credit_card_type').val('Visa');
           $('#crm-container .crm-contribution-main-form-block .credit_card_type-section .civicrmdesjardins-cclogo-visa').css('opacity', 1);
+          $('input#cvv2').val('000');
         }
       });
     }
