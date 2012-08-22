@@ -16,6 +16,10 @@
   padding-top: 20px;
 }
 
+#crm-container .crm-contribution-main-form-block .credit_card_type-section .label {
+  display: none;
+}
+
 #crm-container .crm-contribution-main-form-block .credit_card_type-section .content {
   position: relative;
 }
