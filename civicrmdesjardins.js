@@ -40,7 +40,7 @@
       });
 
       // Hide the CC type field (redundant anyway) and select according to the number entered
-      cj('#crm-container .credit_card_type-section input#credit_card_number').change(function() {
+      cj('#crm-container .credit_card_number-section input#credit_card_number').change(function() {
         var ccnumtype = cj(this).val().substr(0, 4);
 
         // Semi-hide all images, we will un-hide the right one afterwards
