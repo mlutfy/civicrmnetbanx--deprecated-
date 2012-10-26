@@ -2,7 +2,7 @@
 
 /*
  +--------------------------------------------------------------------+
- | Desjardins Payment Gateway Processor (without redirection)         |
+ | Netbanx Payment Gateway Processor (without redirection)            |
  +--------------------------------------------------------------------+
  | Copyright Mathieu Lutfy 2010-2012                                  |
  +--------------------------------------------------------------------+
@@ -36,10 +36,7 @@
 
 require_once 'CRM/Core/Payment.php';
 
-class org_civicrm_payment_desjardins extends CRM_Core_Payment {
-    // Wheter to log all XML communication with the gateway
-    const CIVICRM_DESJARDINS_LOG = TRUE;
-
+class org_civicrm_payment_netbanx extends CRM_Core_Payment {
     // Netbanx services paths
     const CIVICRM_NETBANX_SERVICE_CREDIT_CARD = 'creditcardWS/CreditCardService';
 
@@ -75,7 +72,7 @@ class org_civicrm_payment_desjardins extends CRM_Core_Payment {
         $this->_paymentProcessor = $paymentProcessor;
         $this->_processorName = ts('Netbanx');
 
-        $config = CRM_Core_Config::singleton( ); // get merchant data from config
+        $config = CRM_Core_Config::singleton(); // get merchant data from config
         $this->_profile['mode'] = $mode; // live or test
         $this->_profile['storeid']  = $this->_paymentProcessor['user_name'];
         $this->_profile['apitoken'] = $this->_paymentProcessor['password'];
@@ -97,10 +94,10 @@ class org_civicrm_payment_desjardins extends CRM_Core_Payment {
      * @static
      *
      */
-    static function &singleton( $mode, &$paymentProcessor ) {
+    static function &singleton($mode, &$paymentProcessor) {
         $processorName = $paymentProcessor['name'];
-        if (self::$_singleton[$processorName] === null ) {
-            self::$_singleton[$processorName] = new org_civicrm_payment_desjardins( $mode, $paymentProcessor );
+        if (self::$_singleton[$processorName] === NULL) {
+            self::$_singleton[$processorName] = new org_civicrm_payment_netbanx($mode, $paymentProcessor);
         }
         return self::$_singleton[$processorName];
     }
@@ -108,7 +105,7 @@ class org_civicrm_payment_desjardins extends CRM_Core_Payment {
     /**
      * Implements main function called from CiviCRM on form submit
      */
-    function doDirectPayment( &$params ) {
+    function doDirectPayment(&$params) {
       if (!function_exists('curl_init')) {
         return self::error('The Desjardins.com API service requires curl.  Please talk to your system administrator to get this configured.');
       }
@@ -117,7 +114,7 @@ class org_civicrm_payment_desjardins extends CRM_Core_Payment {
       $this->invoice_id = $params['invoiceID'];
 
       # make sure i've been called correctly ...
-      if ( ! $this->_profile ) {
+      if (! $this->_profile) {
           return self::error('Unexpected error, missing profile');
       }
 
@@ -127,14 +124,14 @@ class org_civicrm_payment_desjardins extends CRM_Core_Payment {
 
       // Fraud-protection: Validate the postal code
       if (! self::isValidPostalCode($params)) {
-        watchdog('civicrmdesjardins', 'Invalid postcode for Canada: ' . print_r($params, 1));
+        watchdog('civicrmnetbanx', 'Invalid postcode for Canada: ' . print_r($params, 1));
         return self::netbanxFailMessage('NBX002', 'request invalid postcode', $params);
       }
 
 /* less necessary now that we have CVV2
       // Fraud-protection: Limit the number of transactions: 1 per hours
       if ($this->isTooManyTransactions($params)) {
-        watchdog('civicrmdesjardins', 'Too many transactions from: ' . $params['ip_address']);
+        watchdog('civicrmnetbanx', 'Too many transactions from: ' . $params['ip_address']);
         return self::netbanxFailMessage('NBX003', 'request flood by ip', $params);
       }
 */
@@ -169,7 +166,7 @@ class org_civicrm_payment_desjardins extends CRM_Core_Payment {
       // Assigning the receipt to the $params doesn't really do anything
       // In previous versions, we would patch the core in order to show the receipt.
       // It would be nice to have something in CiviCRM core in order to handle this.
-      $params['receipt_desjardins'] = self::generateReceipt($params, $response);
+      $params['receipt_netbanx'] = self::generateReceipt($params, $response);
       $params['trxn_result_code'] = $response->confirmationNumber . "-" . $response->authCode . "-" . $response->cvdResponse . "-" . $response->avsResponse;
 
       db_query("INSERT INTO {civicrmdesjardins_receipt} (trx_id, receipt, first_name, last_name, card_type, card_number, timestamp, ip)
@@ -427,18 +424,18 @@ class org_civicrm_payment_desjardins extends CRM_Core_Payment {
      * error : either an object that implements getResponseCode() and getErrorMessage, or a string.
      * errnum : if the error is a string, this should have the error number.
      */
-    function &error( $error = null, $errnum = 9002 ) {
+    function &error($error = null, $errnum = 9002) {
         $e =& CRM_Core_Error::singleton( );
-        if ( is_object($error) ) {
+        if (is_object($error)) {
             $e->push( $error->getResponseCode( ),
                       0, null,
                       $error->getErrorMessage( ) );
-        } elseif ( is_string($error) ) {
+        } elseif (is_string($error)) {
             $e->push( $errnum,
                       0, null,
                       $error );
         } else {
-            $e->push( 9001, 0, null, "Unknown System Error." );
+            $e->push(9001, 0, null, "Unknown System Error.");
         }
         return $e;
     }
@@ -452,16 +449,16 @@ class org_civicrm_payment_desjardins extends CRM_Core_Payment {
     function checkConfig() {
         $error = array();
 
-        if ( empty( $this->_paymentProcessor['user_name'] ) ) {
+        if (empty( $this->_paymentProcessor['user_name'])) {
             $error[] = ts( 'Merchant ID is not set in the Administer CiviCRM &raquo; Payment Processor.' );
         }
 
-        if ( empty( $this->_paymentProcessor['password'] ) ) {
-            $error[] = ts( 'Password is not set in the Administer CiviCRM &raquo; Payment Processor.' );
+        if (empty($this->_paymentProcessor['password'])) {
+            $error[] = ts('Password is not set in the Administer CiviCRM &raquo; Payment Processor.' );
         }
 
-        if ( ! empty( $error ) ) {
-            return implode( '<p>', $error );
+        if (! empty($error)) {
+            return implode('<p>', $error);
         } else {
             return null;
         }
