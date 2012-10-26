@@ -21,10 +21,9 @@
   <compatibility><ver>4.2</ver></compatibility>
   <comments></comments>
   <typeInfo>
-    <userNameLabel>Merchant number (SAT)</userNameLabel>
-    <passwordLabel>Merchant key (hash)</passwordLabel>
-    <signatureLabel>not used</signatureLabel>
-    <subjectLabel>Merchant ID</subjectLabel>
+    <userNameLabel>Store ID</userNameLabel>
+    <passwordLabel>Password</passwordLabel>
+    <subjectLabel>Account Number</subjectLabel>
     <urlSiteDefault>https://webservices.optimalpayments.com/</urlSiteDefault>
     <urlApiDefault></urlApiDefault>
     <urlRecurDefault>https://webservices.optimalpayments.com/</urlRecurDefault>

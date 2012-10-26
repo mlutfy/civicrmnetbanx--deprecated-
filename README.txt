@@ -19,6 +19,7 @@ TODO:
 
 * Remove mentions to Desjardins, replace by Netbanx.
 * Make logo customizable (currently defaults to Desjardins).
+* Support recurrent billing (ex: monthly donations).
 * UI to configure the civicrmdesjardins_tos_text and civicrmdesjardins_tos_url variables.
   (you can use the 'variable' module to configure them)
 * More hook_requirements to have a clearer checklist of what needs to be done before having

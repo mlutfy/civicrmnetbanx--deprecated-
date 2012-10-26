@@ -74,8 +74,9 @@ class org_civicrm_payment_netbanx extends CRM_Core_Payment {
 
         $config = CRM_Core_Config::singleton(); // get merchant data from config
         $this->_profile['mode'] = $mode; // live or test
-        $this->_profile['storeid']  = $this->_paymentProcessor['user_name'];
-        $this->_profile['apitoken'] = $this->_paymentProcessor['password'];
+        $this->_profile['user_name']  = $this->_paymentProcessor['user_name'];
+        $this->_profile['password'] = $this->_paymentProcessor['password'];
+        $this->_profile['subject'] = $this->_paymentProcessor['subject'];
         $currencyID = $config->defaultCurrency;
 
         if ('CAD' != $currencyID) {
@@ -106,8 +107,8 @@ class org_civicrm_payment_netbanx extends CRM_Core_Payment {
      * Implements main function called from CiviCRM on form submit
      */
     function doDirectPayment(&$params) {
-      if (!function_exists('curl_init')) {
-        return self::error('The Desjardins.com API service requires curl.  Please talk to your system administrator to get this configured.');
+      if (! class_exists('SoapClient')) {
+        return self::error('The Netbanx API service requires php-soap.  Please talk to your system administrator to get this configured (Debian/Ubuntu: apt-get install php-soap).');
       }
 
       $this->ip = $params['ip_address'];
@@ -193,15 +194,14 @@ class org_civicrm_payment_netbanx extends CRM_Core_Payment {
      * FIXME: remove hardcoded stuff, use civicrm settings
      */
     function netbanxMerchantAccount() {
-      /* TODO
-      $merchant_id   = $this->_profile['storeid'];
-      $merchant_key  = $this->_profile['apitoken'];
-      */
+      $account_num   = $this->_profile['subject'];
+      $store_id      = $this->_profile['user_name'];
+      $store_pwd     = $this->_profile['password'];
 
       return array(
-        'accountNum' => 89991897, // string 10 chars
-        'storeID' => 'test',
-        'storePwd' => 'test',
+        'accountNum' => $account_num,
+        'storeID' => $store_id,
+        'storePwd' => $store_pwd,
       );
     }
 
@@ -287,6 +287,7 @@ class org_civicrm_payment_netbanx extends CRM_Core_Payment {
     /**
      * Returns the appropriate web service URL
      * see @netbanxPurchase()
+     * FIXME: should use civicrm gateway settings, not hardcode URLs
      */
     function netbanxGetWsdlUrl($service) {
       $url = NULL;
