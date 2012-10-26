@@ -6,7 +6,6 @@ It should work for merchants using Netbanx directly as well.
 It integrates with the payment method "without redirection" (process, not notify),
 therefore you will need an SSL certificate for your payment page.
 
-
 INSTALLATION:
 ------------
 
@@ -15,6 +14,8 @@ See the INSTALL.txt file.
 TODO:
 ----
 
+* Remove mentions to Desjardins, replace by Netbanx.
+* Make logo customizable (currently defaults to Desjardins).
 * UI to configure the civicrmdesjardins_tos_text and civicrmdesjardins_tos_url variables.
   (you can use the 'variable' module to configure them)
 * More hook_requirements to have a clearer checklist of what needs to be done before having
