@@ -174,7 +174,7 @@ class org_civicrm_payment_netbanx extends CRM_Core_Payment {
                 VALUES (:trx_id, :receipt, :first_name, :last_name, :card_type, :card_number, :timestamp, :ip)",
                 array(
                   ':trx_id' => $params['trxn_id'],
-                  ':receipt' => $params['receipt_desjardins'],
+                  ':receipt' => $params['receipt_netbanx'],
                   ':first_name' => $params['first_name'],
                   ':last_name' => $params['last_name'],
                   ':card_type' => $params['credit_card_type'],
