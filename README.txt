@@ -4,7 +4,10 @@ This is the new payment gateway (since 2012) used by Desjardins in Quebec.
 It should work for merchants using Netbanx directly as well.
 
 It integrates with the payment method "without redirection" (process, not notify),
-therefore you will need an SSL certificate for your payment page.
+therefore you will need an SSL certificate for your payment page. In Netbanx terms,
+this is a "hosted payment page - autonomous".
+
+Your site must be conform to PCI-DSS requirements.
 
 INSTALLATION:
 ------------
@@ -25,21 +28,37 @@ TODO:
   i.e. do not show the Amex/MC logo if the card is not accepted.
 * Propose a patch to CiviCRM so that we have a standard way of displaying the receipt in the
   ThankYou.tpl, so that we do not need to systematically override the template.
+* Implement AVS and 3D-secure (Not a priority, to be honest. Rarely required in a CiviCRM context).
 
 MORE INFORMATION:
 ----------------
 
 Technical information about the payment gateway:
-http://www.partenaires-desjardins.com/web/support-technique/documentation.html
+http://support.optimalpayments.com/docapi.asp
+http://support.optimalpayments.com/test_environment.asp
+
+To open an account, contact Optimal Payments sales via their website.
+If you are with Desjardins, contact Desjardins merchant services.
 
 More information about this code:
 https://github.com/mlutfy/civicrmnetbanx
 
+CREDITS:
+-------
+
 (C) 2011-2012 Mathieu Lutfy <mathieu@bidon.ca>
 http://www.bidon.ca/en/about
 
+Thanks to Henrique Recidive for his commerce_netbanx module, which helped
+to understand the Netbanx spec.
+http://drupal.org/project/commerce_netbanx
+
 This module is in no way affiliated, endorsed or supported by Desjardins,
 Netbanx/Optimal Solutions or Visa/Mastercard.
+
+
+LICENSE:
+-------
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
