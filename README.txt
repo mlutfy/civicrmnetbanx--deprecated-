@@ -1,11 +1,10 @@
-Hooks and extention for Desjardins payment processor integration in CiviCRM.
-Note that a new version of the payment gateway came out in December 2011 (using
-Optimal Payments by Netbanx).
+Netbanx (Optimal Payments) payment processor integration for CiviCRM.
 
-Currently this code only supports the "old" API.
+This is the new payment gateway (since 2012) used by Desjardins in Quebec.
+It should work for merchants using Netbanx directly as well.
 
 It integrates with the payment method "without redirection" (process, not notify),
-therefore you will need an SSL certificate on your donation page.
+therefore you will need an SSL certificate for your payment page.
 
 
 INSTALLATION:
@@ -33,11 +32,13 @@ Technical information about the payment gateway:
 http://www.partenaires-desjardins.com/web/support-technique/documentation.html
 
 More information about this code:
-https://github.com/mlutfy/CiviCRM-Desjardins
+https://github.com/mlutfy/civicrmnetbanx
 
 (C) 2011-2012 Mathieu Lutfy <mathieu@bidon.ca>
+http://www.bidon.ca/en/about
 
-This module is in no way affiliated, endorsed or supported by Desjardins or Visa Desjardins.
+This module is in no way affiliated, endorsed or supported by Desjardins,
+Netbanx/Optimal Solutions or Visa/Mastercard.
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
