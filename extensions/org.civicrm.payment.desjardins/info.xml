@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<extension key="org.civicrm.payment.desjardins" type="payment">
-  <downloadUrl>https://github.com/downloads/mlutfy/fixme.zip</downloadUrl>
-  <file>Desjardins</file>
-  <name>Desjardins</name>
-  <description>Desjardins Payment Processor (without redirection)</description>
+<extension key="org.civicrm.payment.netbanx" type="payment">
+  <downloadUrl>https://github.com/mlutfy/civicrmnetbanx/zipball/master</downloadUrl>
+  <file>Netbanx</file>
+  <name>Netbanx</name>
+  <description>Netbanx Payment Processor (hosted page, autonomous, without redirection)</description>
   <urls>
-    <url desc="Main Extension Page">http://www.bidon.ca/en/about</url>
+    <url desc="Main Extension Page">https://github.com/mlutfy/civicrmnetbanx</url>
     <url desc="Documentation">http://www.bidon.ca/en/about</url>
     <url desc="Support">http://www.bidon.ca/en/about</url>
     <url desc="Licensing"></url>
@@ -15,7 +15,7 @@
     <author>Mathieu Lutfy</author>
     <email>mathieu@bidon.ca</email>
   </maintainer>
-  <releaseDate>2012-09-13</releaseDate>
+  <releaseDate>2012-10-26</releaseDate>
   <version>2.0</version>
   <develStage>stable</develStage>
   <compatibility><ver>4.2</ver></compatibility>
@@ -25,12 +25,12 @@
     <passwordLabel>Merchant key (hash)</passwordLabel>
     <signatureLabel>not used</signatureLabel>
     <subjectLabel>Merchant ID</subjectLabel>
-    <urlSiteDefault>https://epaiementsecurise.desjardins.com/catch</urlSiteDefault>
+    <urlSiteDefault>https://webservices.optimalpayments.com/</urlSiteDefault>
     <urlApiDefault></urlApiDefault>
-    <urlRecurDefault>https://epaiementsecurise.desjardins.com/catch</urlRecurDefault>
-    <urlSiteTestDefault>https://www.labdevtrx3.com/catch</urlSiteTestDefault>
+    <urlRecurDefault>https://webservices.optimalpayments.com/</urlRecurDefault>
+    <urlSiteTestDefault>https://webservices.test.optimalpayments.com/</urlSiteTestDefault>
     <urlApiTestDefault></urlApiTestDefault>
-    <urlRecurTestDefault>https://www.labdevtrx3.com/catch</urlRecurTestDefault>
+    <urlRecurTestDefault>https://webservices.test.optimalpayments.com/</urlRecurTestDefault>
     <urlButtonDefault></urlButtonDefault>
     <urlButtonTestDefault></urlButtonTestDefault>
     <billingMode>form</billingMode>
