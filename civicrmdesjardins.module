@@ -41,33 +41,6 @@ function civicrmdesjardins_menu() {
 }
 
 /**
- * Receives the confirmation request from Desjardins using POST
- */
-function civicrmdesjardins_validate() {
-  if (! isset($GLOBALS['HTTP_RAW_POST_DATA'])) {
-    echo 'Error: validation request not found';
-    drupal_exit();
-  }
-
-  $data_received = stripslashes($GLOBALS['HTTP_RAW_POST_DATA']);
-  $data_received = strstr($data_received,'<');
-
-  // load the Desjardins extention
-  civicrm_initialize(TRUE);
-  require_once 'CRM/Core/Payment.php';
-  module_load_include('php', 'civicrmdesjardins', 'extensions/org.civicrm.payment.desjardins/Desjardins');
-
-  $r = new CRM_Core_Payment_Desjardins_Response('Confirm', $data_received);
-  $txinfo = $r->getData();
-
-  civicrmdesjardins_logxml($txinfo->merchant->confirm->transaction['id'], $data_received, 'confirm request');
-  civicrmdesjardins_send_confirmation($txinfo);
-
-  unset($r);
-  drupal_exit();
-}
-
-/**
  * Implementation of hook_civicrm_buildForm()
  */
 function civicrmdesjardins_civicrm_buildForm($formName, &$form) {
@@ -87,20 +60,6 @@ function civicrmdesjardins_civicrm_buildForm($formName, &$form) {
         $text = preg_replace('/\.00 \$/', ' $', $text);
         $elements[$key]->setText($text);
       }
-    }
-  }
-
-  if ($formName == 'CRM_Contribute_Form_Contribution_Main' || $formName == 'CRM_Event_Form_Registration_Register') {
-    //
-    // Disable the CVV2 field
-    // Note: you also have to hide it from templates in CRM/Core/BillingBlock.tpl
-    // this only removes the requirement to fill in the cvv2 field
-    //  
-    // [ML] removing it causes the form to loop back without an error message (?!)
-    // $form->removeElement('cvv2');
-    if ($form->elementExists('cvv2')) {
-      $cvv2 =& $form->getElement('cvv2');
-      $cvv2->setValue('000');
     }
   }
 
@@ -153,43 +112,14 @@ function civicrmdesjardins_civicrm_tokenValues( &$details, &$contactIDs ) {
   $details['contribution.desjardins_receipt'] = $receipt;
 }
 
-function civicrmdesjardins_send_confirmation($tx) {
-  header('Content-Type: text/xml');
-  header('Cache-Control: no-cache, must-revalidate'); // HTTP/1.1
-  header('Expires: Mon, 26 Jul 1997 05:00:00 GMT'); // Date in the past
-
-  // TODO: this should probably check that the transaction
-  // is really being processed
-  $response = '<?xml version="1.0" encoding="ISO-8859-15"?>'."\n";
-  $response .= '<response>' . "\n";
-  $response .= '  <merchant id="' . $tx->merchant['id'] . '">' . "\n";
-  $response .= '    <transaction id="' . $tx->merchant->confirm->transaction['id'] . '" accepted="yes" />' . "\n";
-  $response .= '  </merchant>'."\n";
-  $response .= '</response>'."\n";
-
-  civicrmdesjardins_logxml($tx->merchant->confirm->transaction['id'], $response, 'confirm response');
-  echo $response;
-}
-
-function civicrmdesjardins_logxml($trx_id, $message, $type, $fail = 0) {
-  $time = time();
-  $message = preg_replace('/<number>(\d{2})\d{10}(\d{4})<\/number>/', '<number>\1**********\2</number>', $message);
-
-  if (! $trx_id) {
-    watchdog('civicrmdesjardins', 'No trx_id found, cannot write the log: ' . check_plain($message), 'error');
-    return;
-  }
-
-  db_query("INSERT INTO {civicrmdesjardins_log} (trx_id, timestamp, type, message, fail, ip)
-            VALUES (:trx_id, :timestamp, :type, :message, :fail, :ip)",
-            array(':trx_id' => $trx_id, ':timestamp' => $time, ':type' => $type, ':message' => $message, ':fail' => $fail, ':ip' => $_SERVER['REMOTE_ADDR']));
-}
-
 /**
  * Returns the Desjardins receipt for the transaction
  * Add this in your ThankYou.tpl : {$trxn_id|civicrmdesjardins_receipt}
  */
 function smarty_modifier_civicrmdesjardins_receipt($trx_id) {
-  return db_query('SELECT receipt FROM {civicrmdesjardins_receipt} WHERE trx_id = :trx_id', array(':trx_id' => $trx_id))->fetchField();
+  return civicrmdesjardins_receipt($trx_id);
 }
 
+function civicrmdesjardins_receipt($trx_id) {
+  return db_query('SELECT receipt FROM {civicrmdesjardins_receipt} WHERE trx_id = :trx_id', array(':trx_id' => $trx_id))->fetchField();
+}
