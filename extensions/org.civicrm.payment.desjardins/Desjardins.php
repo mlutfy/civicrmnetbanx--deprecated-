@@ -37,11 +37,16 @@
 require_once 'CRM/Core/Payment.php';
 
 class org_civicrm_payment_desjardins extends CRM_Core_Payment {
-    const
-        CHARSET  = 'UFT-8'; # (not used, implicit in the API, might need to convert?)
+    // Wheter to log all XML communication with the gateway
+    const CIVICRM_DESJARDINS_LOG = TRUE;
 
-    const
-        CIVICRM_DESJARDINS_LOG = TRUE; # Wheter to log all XML communication with the gateway
+    // Netbanx services paths
+    const CIVICRM_NETBANX_SERVICE_CREDIT_CARD = 'creditcardWS/CreditCardService';
+
+    // Netbanx stuff
+    const CIVICRM_NETBANX_PAYMENT_ACCEPTED = 'ACCEPTED';
+    const CIVICRM_NETBANX_PAYMENT_DECLINED = 'DECLINED';
+    const CIVICRM_NETBANX_PAYMENT_ERROR    = 'ERROR';
 
     /**
      * We only need one instance of this object. So we use the singleton
@@ -55,6 +60,9 @@ class org_civicrm_payment_desjardins extends CRM_Core_Payment {
     // IP of the visitor
     private $ip = 0;
 
+    // CiviCRM invoice ID
+    private $invoice_id = NULL;
+
     /**
      * Constructor
      *
@@ -62,10 +70,10 @@ class org_civicrm_payment_desjardins extends CRM_Core_Payment {
      *
      * @return void
      */
-    function __construct( $mode, &$paymentProcessor ) {
+    function __construct($mode, &$paymentProcessor) {
         $this->_mode = $mode;
         $this->_paymentProcessor = $paymentProcessor;
-        $this->_processorName = ts('Desjardins');
+        $this->_processorName = ts('Netbanx');
 
         $config = CRM_Core_Config::singleton( ); // get merchant data from config
         $this->_profile['mode'] = $mode; // live or test
@@ -80,89 +88,8 @@ class org_civicrm_payment_desjardins extends CRM_Core_Payment {
         }
     }
 
-    function purchase($tx_id, $tx_key, $amount, $cc_num, $cc_name, $cc_expyear, $cc_expmonth, $cc_email) {
-    	$merchant_id = $this->_profile['storeid'];
-    	$merchant_key = $this->_profile['apitoken'];
-        $url_response = 'https://' . $_SERVER['SERVER_NAME'] . '/civicrmdesjardins/validate'; // XXX should use the correct variable for baseurl
-   	$submit_url =  $this->_paymentProcessor['url_site'];
-
-    	$amount = intval($amount * 100); // Ex: 15.24$ => 1524
-
-        require_once 'CRM/Utils/System.php';
-        $lcMessages = CRM_Utils_System::getUFLocale();
-
-        if ($lcMessages) {
-          $lcMessages = substr($lcMessages, 0, 2);
-        }
-
-        // don't take any risks, otherwise the transaction will fail
-        if (! ($lcMessages == 'fr' || $lcMessages == 'en')) {
-          $lcMessages = 'fr';
-        }
-
-        // Clean up CC number
-        $cc_num = preg_replace('/[^0-9]/', '', $cc_num);
-
-    	$xmlData = '';
-    	$response = '';
-
-    	$xmlData .= '<?xml version="1.0" encoding="UTF-8" ?>';
-    	$xmlData .= '<request>';
-    	$xmlData .=   '<merchant id="' .$merchant_id . '" key="' . $merchant_key . '">';
-    	$xmlData .=     '<transactions>';
-    	$xmlData .=       '<transaction id="' . $tx_id . '" key="' . $tx_key . '" type="purchase" currency="CAD" currencyText="$CAD">';
-    	$xmlData .=         '<amount>' . $amount . '</amount>';
-    	$xmlData .=         '<language>' . $lcMessages . '</language>';
-    	$xmlData .=         '<card>';
-    	$xmlData .=           '<number>' . $cc_num . '</number>';
-    	$xmlData .=           '<holder_name>' . $cc_name . '</holder_name>';
-    	$xmlData .=           '<expiry>';
-    	$xmlData .=             '<year>' . $cc_expyear . '</year>';
-    	$xmlData .=             '<month>' . $cc_expmonth . '</month>';
-    	$xmlData .=           '</expiry>';
-    	$xmlData .=         '</card>';
-    	$xmlData .=         '<customer_email>' . $cc_email . '</customer_email>';
-    	$xmlData .=         '<urls>';
-    	$xmlData .=           '<url name="response">';
-    	$xmlData .=             '<path>'.$url_response.'</path>';
-    	$xmlData .=           '</url>';
-    	$xmlData .=         '</urls>';
-    	$xmlData .=       '</transaction>';
-    	$xmlData .=     '</transactions>';
-    	$xmlData .=   '</merchant>';
-    	$xmlData .= '</request>';
-
-        $this->djLog($tx_id, $xmlData, 'purchase send');
-
-    	$header = array();
-    	$header[] = "MIME-Version: 1.0";
-    	$header[] = "Content-type: text/xml";
-    	$header[] = "Accept: text/xml";
-    	$header[] = "Content-length: " . strlen($xmlData);
-    	$header[] = "Cache-Control: no-cache";
-    	$header[] = "Connection: close";
-
-    	$ch = curl_init();
-    	curl_setopt($ch, CURLOPT_HTTPHEADER, $header);
-    	curl_setopt($ch, CURLOPT_URL, $submit_url);
-    	curl_setopt($ch, CURLOPT_VERBOSE, 0);
-    	curl_setopt($ch, CURLOPT_POST, 1);
-    	curl_setopt($ch, CURLOPT_POSTFIELDS, $xmlData);
-    	curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-    	curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 1);
-    	curl_setopt($ch, CURLOPT_NOPROGRESS, 1);
-    	curl_setopt($ch, CURLOPT_FOLLOWLOCATION, 0);
-    	$response = curl_exec($ch);
-    	curl_close($ch);
-
-        $r = new CRM_Core_Payment_Desjardins_Response('Payment', $response);
-        $this->djLog($tx_id, utf8_encode($response), 'purchase response', $r->isError());
-
-        return $r;
-    }
-
     /**
-     * singleton function used to manage this object
+     * Singleton function used to manage this object
      *
      * @param string $mode the mode of operation: live or test
      *
@@ -178,13 +105,16 @@ class org_civicrm_payment_desjardins extends CRM_Core_Payment {
         return self::$_singleton[$processorName];
     }
 
-
+    /**
+     * Implements main function called from CiviCRM on form submit
+     */
     function doDirectPayment( &$params ) {
       if (!function_exists('curl_init')) {
         return self::error('The Desjardins.com API service requires curl.  Please talk to your system administrator to get this configured.');
       }
 
       $this->ip = $params['ip_address'];
+      $this->invoice_id = $params['invoiceID'];
 
       # make sure i've been called correctly ...
       if ( ! $this->_profile ) {
@@ -196,127 +126,247 @@ class org_civicrm_payment_desjardins extends CRM_Core_Payment {
       }
 
       // Fraud-protection: Validate the postal code
-      if (! $this->isValidPostalCode($params)) {
+      if (! self::isValidPostalCode($params)) {
         watchdog('civicrmdesjardins', 'Invalid postcode for Canada: ' . print_r($params, 1));
-        $this->djLog($params['invoiceID'], 'anti-fraud (CDJ002 invalid postcode): ' . print_r($params, 1), 'do_direct fraud', TRUE);
-        return self::error(t("Error") . ": " . t('The transaction could not be processed, please contact us for more information.')
-                      . ' (code: CDJ002) '
-                      . '<div class="civicrm-dj-retrytx">' . t("The transaction was not approved. Please verify your credit card number and expiration date.") . '</div>');
+        return self::netbanxFailMessage('NBX002', 'request invalid postcode', $params);
       }
 
-      // Fraud-protection: Limit the number of transactions: 2 per 6 hours
+/* less necessary now that we have CVV2
+      // Fraud-protection: Limit the number of transactions: 1 per hours
       if ($this->isTooManyTransactions($params)) {
         watchdog('civicrmdesjardins', 'Too many transactions from: ' . $params['ip_address']);
-        $this->djLog($params['invoiceID'], 'anti-fraud (CDJ003 too many transactions from IP): ' . print_r($params, 1), 'do_direct fraud', TRUE);
-        return self::error(t("Error") . ": " . t('The transaction could not be processed, please contact us for more information.')
-                      . ' (code: CDJ003) '
-                      . '<div class="civicrm-dj-retrytx">' . t("The transaction was not approved. Please verify your credit card number and expiration date.") . '</div>');
+        return self::netbanxFailMessage('NBX003', 'request flood by ip', $params);
+      }
+*/
+
+      self::djLog($params, 'civicrm params');
+
+      // NETBANX START
+      $data = array(
+        'merchantAccount' => self::netbanxMerchantAccount(),
+        'merchantRefNum' => $this->invoice_id,  // string max 255 chars
+        'amount' => self::netbanxGetAmount($params),
+        'card' => self::netbanxGetCard($params),
+        'customerIP' => $params['ip_address'],
+        'billingDetails' => self::netbanxGetBillingDetails($params),
+      );
+
+      $response = self::netbanxPurchase($data);
+
+      if (! $response) {
+        return self::netbanxFailMessage('NBX010', 'netbanx response null', $params);
       }
 
-      if(!empty($params['amount'])){
-	$amount = $params['amount'];
-      }else{
-        $amount = $params['amount_other'];
-      }
-
-      $cc_num   = $params['credit_card_number'];
-      $cc_month = str_pad($params['month'], 2, '0', STR_PAD_LEFT);
-      $cc_year  = substr($params['year'], -2);
-      $cc_name  = $params['first_name'] . ' ' . $params['last_name'];
-      $tx_email = $params['email'];
-
-      // *************************** Request Variables ******************************
-      $merchant_id   = $this->_profile['storeid'];
-      $merchant_key  = $this->_profile['apitoken'];
-      $invoice_id = $params['invoiceID'];
-
-      // used to have a special CC number to make test transactions, but should be avoided..
-      // if (! ($cc_num == '4111111111111111' && $cc_month == '03')) {
-      // }
-
-      $authresp = $this->doDesjardinsLogin($merchant_key, $invoice_id);
-      $auth = $authresp->getData();
-
-      if ($authresp->isError()) {
-        // login failed, probably an error caused by the merchant site, not the user.
-        return self::error(t("Error") . ": " . $authresp->getErrorMessage()
-            . '<div class="civicrm-dj-retrytx">' . t("The transaction could not be processed. Please contact us.") . '</div>');
-      }
-
-      $purchaseresp = $this->purchase($invoice_id, $auth->merchant->login->trx['key'], $amount, $cc_num, $cc_name, $cc_year, $cc_month, $tx_email);
-      $purchase = $purchaseresp->getData();
-
-      if ($purchaseresp->isError() || (! $purchase->merchant->transaction->receipt)) {
-        // this would be cleaner to just call self:error($purchaseresp)
-        // and leave it to getErrorMessage() to generate the correct message
-        // depending on the phase of the transaction (i.e. whether we need a receipt or not)
-        return self::error($purchaseresp->getErrorMessage('short')
-          . '<div class="civicrm-dj-retrytx">' . t("The transaction was not approved. Please verify your credit card number and expiration date.") . '</div>'
-          . '<pre>' . $this->generateReceipt($invoice_id, $amount, $purchase, FALSE) . '</pre>', '9002-' . $purchaseresp->getResponseCode());
+      if ($response->decision != self::CIVICRM_NETBANX_PAYMENT_ACCEPTED) {
+        $receipt = self::generateReceipt($params, $response, FALSE);
+        return self::netbanxFailMessage($receipt, 'netbanx response declined', $params, $response);
       }
 
       // Success
-      $params['trxn_result_code'] = (string) $purchase->merchant->transaction->{'condition_code'}[0];
-      $params['trxn_id']         = $invoice_id;
-      $params['gross_amount']    = $amount;
+      $params['trxn_id']       = $response->confirmationNumber; // XXX was invoice_id before
+      $params['gross_amount']  = $data['amount'];
 
       // Assigning the receipt to the $params doesn't really do anything
       // In previous versions, we would patch the core in order to show the receipt.
       // It would be nice to have something in CiviCRM core in order to handle this.
-      $params['receipt_desjardins'] = $this->generateReceipt($invoice_id, $amount, $purchase);
+      $params['receipt_desjardins'] = self::generateReceipt($params, $response);
+      $params['trxn_result_code'] = $response->confirmationNumber . "-" . $response->authCode . "-" . $response->cvdResponse . "-" . $response->avsResponse;
 
       db_query("INSERT INTO {civicrmdesjardins_receipt} (trx_id, receipt, first_name, last_name, card_type, card_number, timestamp, ip)
                 VALUES (:trx_id, :receipt, :first_name, :last_name, :card_type, :card_number, :timestamp, :ip)",
                 array(
-                  ':trx_id' => $invoice_id,
+                  ':trx_id' => $params['trxn_id'],
                   ':receipt' => $params['receipt_desjardins'],
                   ':first_name' => $params['first_name'],
                   ':last_name' => $params['last_name'],
                   ':card_type' => $params['credit_card_type'],
-                  ':card_number' => preg_replace('/(\d{2})\d{10}(\d{4})/', '\1**********\2', $params['credit_card_number']),
+                  ':card_number' => self::netbanxGetCardForReceipt($params['credit_card_number']),
                   ':timestamp' => time(),
-                  ':ip' => $params['ip_address'],
+                  ':ip' => $this->ip,
                ));
 
       // Invoke hook_civicrmdesjardins_success($params, $purchase).
-      module_invoke_all('civicrmdesjardins_success', $params, $purchase);
+      module_invoke_all('civicrmdesjardins_success', $params, $response);
 
       return $params;
     }
 
-    function doDesjardinsLogin($key, $id_trx) {
-	$xmlData = '';
-	$response = '';
+    /**
+     * Returns an array with the merchant account info
+     * FIXME: remove hardcoded stuff, use civicrm settings
+     */
+    function netbanxMerchantAccount() {
+      /* TODO
+      $merchant_id   = $this->_profile['storeid'];
+      $merchant_key  = $this->_profile['apitoken'];
+      */
 
-	$isProduction = ($this->_profile['mode'] == 'live');
-   	$submit_url =  $this->_paymentProcessor['url_site'];
+      return array(
+        'accountNum' => 89991897, // string 10 chars
+        'storeID' => 'test',
+        'storePwd' => 'test',
+      );
+    }
 
-	$xmlData .= '<?xml version="1.0" encoding="UTF-8" ?>'
-                  . '<request>'
-                  .   '<merchant key="'. $key .'">'
-                  .     '<login><trx id="'. $id_trx .'" /></login>'
-                  .   '</merchant>'
-                  . '</request>';
+    /**
+     * Extracts the transaction amount
+     * Returns in the format: 20.50
+     */
+    function netbanxGetAmount($params) {
+      $amount = 0;
 
-        $this->djLog($id_trx, $xmlData, 'dj_login send');
+      if (! empty($params['amount'])){
+	$amount = $params['amount'];
+      }
+      else{
+        $amount = $params['amount_other'];
+      }
 
-	$ch = curl_init();
-	curl_setopt($ch, CURLOPT_HTTPHEADER, array("Content-Type: text/xml"));
-	curl_setopt($ch, CURLOPT_URL, $submit_url);
-	curl_setopt($ch, CURLOPT_VERBOSE, 0);
-	curl_setopt($ch, CURLOPT_POST, 1);
-	curl_setopt($ch, CURLOPT_POSTFIELDS, $xmlData);
-	curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-	curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 1);
-	curl_setopt($ch, CURLOPT_NOPROGRESS, 1);
-	curl_setopt($ch, CURLOPT_FOLLOWLOCATION, 0);
-	$response = curl_exec($ch);
-	curl_close($ch);
+      // format: 10.00
+      $amount = number_format($amount, 2, '.', '');
 
-        $r = new CRM_Core_Payment_Desjardins_Response('Login', $response);
-        $this->djLog($id_trx, utf8_encode($response), 'dj_login response', $r->isError());
+      return $amount;
+    }
 
-	return $r;
+    /**
+     * Extracts the credit card info.
+     * Returns an array.
+     */
+    function netbanxGetCard($params) {
+      $card = array(
+        'cardNum' => $params['credit_card_number'],
+        'cardExpiry' => array(
+          'month' => $params['month'],
+          'year' => $params['year'],
+        ),
+      );
+    
+      // Add security code.
+      if (! empty($params['cvv2'])) {
+        $card['cvdIndicator'] = 1;
+        $card['cvdIndicatorSpecified'] = TRUE;
+        $card['cvd'] = $params['cvv2'];
+      }
+
+      return $card;
+    }
+
+    /**
+     * Extracts the billing details info.
+     * Returns an array.
+     */
+    function netbanxGetBillingDetails($params) {
+      $billing = array(
+        'firstName' => $params['first_name'],
+        'lastName' => $params['last_name'],
+        'street' => $params['street_address'],
+        'city' => $params['city'],
+        'country' => $params['country'],
+        'countrySpecified' => TRUE,
+        'zip' => $params['postal_code'],
+        'email' => $params['email-Primary'],
+      );
+
+      // Add state or region based on country
+      if (in_array($params['country'], array('US', 'CA'))) {
+        $billing['state'] = $params['state_province'];
+      }
+      else {
+        $billing['region'] = $params['state_province'];
+      }
+
+      return $billing;
+    }
+
+    /**
+     * Initiates the soap client
+     * see @netbanxPurchase()
+     */
+    function netbanxGetSoapClient($service) {
+      $wsdl_url = $this->netbanxGetWsdlUrl($service);
+      return new SoapClient($wsdl_url);
+    }
+
+    /**
+     * Returns the appropriate web service URL
+     * see @netbanxPurchase()
+     */
+    function netbanxGetWsdlUrl($service) {
+      $url = NULL;
+
+      switch ($this->_mode) {
+        case 'test':
+          $url = 'https://webservices.test.optimalpayments.com/';
+          break;
+        case 'live':
+          $url = 'https://webservices.optimalpayments.com/';
+          break;
+        default:
+          die('netbanxGetWsdlUrl: unknown mode: ' . $this->_mode);
+      }
+
+      return $url . $service . '/v1?wsdl';
+    }
+
+    /**
+     * Send the purchase request to Netbanx
+     */
+    function netbanxPurchase($data) {
+      self::djLog($data, 'netbanx request');
+
+      $netbanx = $this->netbanxGetSoapClient(self::CIVICRM_NETBANX_SERVICE_CREDIT_CARD);
+      $response = $netbanx->ccPurchase(array('ccAuthRequestV1' => $data));
+
+      $v1 = $response->ccTxnResponseV1;
+
+      // re-order the vender-specific data (ex: Desjardins)
+      // otherwise it's an array and doesn't look very reliable:
+      /*
+       [detail] => Array (
+         [0] => stdClass Object ( [tag] => BATCH_NUMBER [value] => 019)
+         [1] => stdClass Object ( [tag] => SEQ_NUMBER [value] => 036)
+         [2] => stdClass Object ( [tag] => EFFECTIVE_DATE [value] => 121003)
+         [3] => stdClass Object ( [tag] => TERMINAL_ID [value] => 85025505))
+      */
+      if (method_exists($v1, 'addendumResponse')) {
+        $v1->addendum = array();
+
+        foreach ($v1['addendumResponse']['detail'] as $key => $val) {
+          $tag = $val['tag'];
+          $v1->addendum[$tag] = $val['value'];
+        }
+      }
+
+      return $v1;
+    }
+
+    /**
+     * Input: 4511111111111111
+     * Returns: 45** **** **** **11
+     */
+    function netbanxGetCardForReceipt($card_number) {
+      $a = substr($card_number, 0, 2);
+      $b = substr($card_number, -2, 2);
+      $str = $a . '** **** **** **' . $b;
+      return $str;
+    }
+
+    /**
+     * Make CiviCRM return a fail message and cancel the transaction.
+     * FIXME: this is not very clean..
+     */
+    function netbanxFailMessage($code, $errtype, $request = NULL, $response = NULL) {
+      self::djLog($response, 'netbanx response null', TRUE);
+
+      // FIXME: format: self::error(9003, 'Message here'); ?
+      if (is_numeric($code)) {
+        return self::error(t("Error") . ": " . t('The transaction could not be processed, please contact us for more information.') . ' (code: ' . $code . ') '
+               . '<div class="civicrm-dj-retrytx">' . t("The transaction was not approved. Please verify your credit card number and expiration date.") . '</div>');
+      }
+
+      return self::error(t('The transaction could not be processed, please contact us for more information.')
+             . '<div class="civicrm-dj-retrytx">' . t("The transaction was not approved. Please verify your credit card number and expiration date.") . '</div>'
+             . '<br/><pre class="civicrm-dj-receiptfail">' . $code . '</pre>');
     }
 
     /**
@@ -399,8 +449,8 @@ class org_civicrm_payment_desjardins extends CRM_Core_Payment {
      * @return string the error message if any
      * @public
      */
-    function checkConfig( ) {
-        $error = array( );
+    function checkConfig() {
+        $error = array();
 
         if ( empty( $this->_paymentProcessor['user_name'] ) ) {
             $error[] = ts( 'Merchant ID is not set in the Administer CiviCRM &raquo; Payment Processor.' );
@@ -417,44 +467,97 @@ class org_civicrm_payment_desjardins extends CRM_Core_Payment {
         }
     }
 
-    // use only civicrmdesjardins_logxml() from civicrmdesjardins.module ?
-    function djLog($trx_id, $message, $type, $fail = 0) {
-      #if ($this->CIVICRM_DESJARDINS_LOG) {
-        $time = time();
-        $message = preg_replace('/<number>(\d{2})\d{10}(\d{4})<\/number>/', '<number>\1**********\2</number>', $message);
+    /**
+     * Logs exchanges with Netbanx
+     */
+    function djLog($message, $type, $fail = 0) {
+      $time = time();
 
-        // sometimes the field is empty, not 0
-        if (! $fail) {
-          $fail = 0;
+      // If the message is a params, data or response, cleanse it before print_r
+      // credit card numbers/cvv2 must not be stored in the database
+      if (is_array($message)) {
+        if (isset($message['card'])) {
+          $message['card']['cardNum'] = self::netbanxGetCardForReceipt($message['card']['cardNum']);
+          $message['card']['cvd'] = 'XYZ';
         }
 
-        db_query("INSERT INTO {civicrmdesjardins_log} (trx_id, timestamp, type, message, fail, ip)
-                  VALUES (:trx_id, :timestamp, :type, :message, :fail, :ip)",
-                  array(':trx_id' => $trx_id, ':timestamp' => $time, ':type' => $type, ':message' => $message, ':fail' => $fail, ':ip' => $this->ip));
-      #}
+        if (isset($message['credit_card_number'])) {
+          $message['credit_card_number'] = self::netbanxGetCardForReceipt($message['credit_card_number']);
+          $message['cvv2'] = 'XYZ';
+        }
+
+        $message = print_r($message, 1);
+      }
+      elseif (is_object($message)) {
+        $message = print_r($message, 1);
+      }
+
+      // sometimes the field is empty, not 0
+      if (! $fail) {
+        $fail = 0;
+      }
+
+      db_query("INSERT INTO {civicrmdesjardins_log} (trx_id, timestamp, type, message, fail, ip)
+                 VALUES (:trx_id, :timestamp, :type, :message, :fail, :ip)",
+                array(':trx_id' => $this->invoice_id, ':timestamp' => $time, ':type' => $type, ':message' => $message, ':fail' => $fail, ':ip' => $this->ip));
     }
 
     /**
      * Generates a human-readable receipt using the purchase response from Desjardins.
      * trx_id : CiviCRM transaction ID
      * amount : numeric amount of the transcation
-     * purchase : response from Desjardins (parsed in an array)
+     * purchase : response from Netbanx (object)
      * success : whether this is a receipt for a successful or failed transaction (not really used)
      */
-    function generateReceipt($trx_id, $amount, $purchase, $success = TRUE) {
+    function generateReceipt($params, $response, $success = TRUE) {
+      $receipt = '';
+
+      $trx_id = $this->invoice_id; // CiviCRM's ID
       $tx = $purchase->merchant->transaction;
 
-      $receipt = $tx->receipt;
-      $receipt = preg_replace("/^0/", "", $receipt);
-      $receipt = preg_replace("/\n0/", "\n", $receipt);
-      $receipt = preg_replace("/\n1/", "\n", $receipt); // in failed transaction receipts
+      $receipt .= self::getNameAndAddress() . "\n\n";
+
+      $receipt .= t('CREDIT CARD TRANSACTION RECORD') . "\n\n";
+
+      $receipt .= t('Date: !date', array('!date' => date('Y-m-d H:i'))) . "\n";
+      $receipt .= t('Transaction: !tx', array('!tx' => $this->invoice_id)) . "\n";
+      $receipt .= t('Authorization: !authcode', array('!authcode' => $response->authCode)) . "\n";
+      $receipt .= t('Confirmation: !confirm', array('!confirm' => $response->confirmationNumber)) . "\n\n";
+
+      $receipt .= t('Credit card: !type', array('!type' => $params['credit_card_type'])) . "\n";
+      $receipt .= t('Card holder name: !name', array('!name' => $params['first_name'] . ' ' . $params['last_name'])) . "\n";
+      $receipt .= t('Card number: !ccnum', array('!ccnum' => self::netbanxGetCardForReceipt($params['credit_card_number']))) . "\n\n";
+
+      $receipt .= t('Seq.: !seq  Batch: !batch', array('!seq' => $response->addendum['SEQ_NUMBER'], '!batch' => $response->addendum['BATCH_NUMBER'])) . "\n";
+      $receipt .= $response->txnTime . "\n\n";
+
+      $receipt .= t('Purchase: !amount', array('!amount' => CRM_Utils_Money::format($params['amount']))) . "\n\n";
+
+      if ($response->decision == self::CIVICRM_NETBANX_PAYMENT_ACCEPTED) {
+        $receipt .= t('TRANSACTION APPROVED - THANK YOU') . "\n\n";
+      }
+      elseif ($response->decision == self::CIVICRM_NETBANX_PAYMENT_ERROR) {
+        $receipt .= t('TRANSACTION CANCELLED - !description', array('!details' => $response->description)) . "\n\n";
+      }
+      elseif ($response->decision == self::CIVICRM_NETBANX_PAYMENT_DECLINED) {
+        $description = $response->description;
+
+        // Silly.. but we try to translate as many messages as possible.
+        if ($description == 'Your request has been declined by the issuing bank.') {
+          $description = t('Your request has been declined by the issuing bank.');
+        }
+
+        $receipt .= t('TRANSACTION DECLINED - !description', array('!description' => $description)) . "\n\n";
+      }
+      else {
+        $receipt .= $response->decision . ' - ' . $response->description . "\n\n";
+      }
 
       if (function_exists('variable_get')) {
         $tos_url  = variable_get('civicrmdesjardins_tos_url', FALSE);
         $tos_text = variable_get('civicrmdesjardins_tos_text', FALSE);
 
         if ($tos_url) {
-          $receipt .= "\n\n";
           $receipt .= t("Terms and conditions:") . "\n";
           $receipt .= $tos_url . "\n\n";
         }
@@ -467,231 +570,37 @@ class org_civicrm_payment_desjardins extends CRM_Core_Payment {
       // Add obligatory notes:
       $receipt .= "\n";
       $receipt .= t("Prices are in canadian dollars ($ CAD).") . "\n";
-      $receipt .= t("This donation is non-taxable.") . "\n\n";
+      $receipt .= t("This transaction is non-taxable.");
+
+      return $receipt;
+    }
+
+    /**
+     * Returns the org's name and address
+     */
+    function getNameAndAddress() {
+      $receipt = '';
 
       // Fetch the domain name, but allow to override it (Desjardins requires that it
       // be the exact business name of the org, and sometimes we use shorter names.
+      $domain = civicrm_api("Domain","get", array ('version' =>'3'));
+
       $org_name = variable_get('civicrmdesjardins_orgname', NULL);
 
       if (! $org_name) {
-        $results = civicrm_api("Domain","get", array ('version' =>'3'));
-        $org_name = $results['values'][1]['name'];
+        $org_name = $domain['values'][1]['name'];
       }
 
-      // Show the card owner next to the card number
-      $cardholder = t('Card Holder Name: !name', array('!name' => $tx->{'card_holder_name'}));
-      $receipt = preg_replace("/\nNo. /", "\n" . $cardholder . "\nNo. ", $receipt);
+      // get province abbrev
+      $province = db_query('SELECT abbreviation FROM {civicrm_state_province} WHERE id = :id', array(':id' => $domain['values'][1]['domain_address']['state_province_id']))->fetchField();
+      // $country = db_query('SELECT name FROM {civicrm_country} WHERE id = :id', array(':id' => $domain['values'][1]['domain_address']['country_id']))->fetchField();
 
-      $receipt = $org_name . "\n\n"
-        . "Transaction: " . $trx_id . "\n"
-    	. t("Authorization:") . " " . $tx->{'authorization_no'} . "\n"
-        . t("Reference:") . " " . $tx->{'sequence_no'} . ' ' . $tx->{'terminal_id'} . "\n\n"
-    	. $receipt;
+      $receipt .= $org_name . "\n";
+      $receipt .= $domain['values'][1]['domain_address']['street_address'] . "\n";
+      $receipt .= $domain['values'][1]['domain_address']['city'] . ', ' . $province;
 
       return $receipt;
     }
 }
 
-/**
- * Class for parsing XML requests
- */
-class CRM_Core_Payment_Desjardins_Response {
-  private $data;
-  private $currentTag;
-  private $parser;
-  private $stage; // for debug only (description of the response we are parsing)
-  private $error; // boolean
-  private $errno; // error code
-  private $errstr; // error message
-
-  function CRM_Core_Payment_Desjardins_Response($stage, $xmlString) {
-    $this->stage = $stage; // Login, Payment or Confirm
-    $this->error = false;
-    $this->errno = 0;
-    $this->errstr = 'n/a';
-
-    $data = new SimpleXMLElement($xmlString, LIBXML_NOCDATA);
-
-    if ($data->error->count()) {
-      $this->error  = TRUE;
-      $this->errno  = $data->error->code;
-      $this->errstr = $data->error->message;
-    }
-    elseif ($data->merchant->transaction['approved'] == 'no') {
-      $this->error  = TRUE;
-      $this->errno  = $data->merchant->transaction->{'condition_code'};
-      $this->errstr = $data->merchant->transaction->{'receipt_text'};
-    }
-
-    $this->data = $data;
-  }
-
-  function getData() {
-    return $this->data;
-  }
-
-  function isError() {
-    return $this->error;
-  }
-
-  function getErrorMessage($format = 'full') {
-    if ($format == 'full') {
-      return $this->errno . ': ' . $this->errstr;
-    }
-    else {
-      return $this->errstr;
-    }
-  }
-
-  // inconsistant: errno vs response code. we should probably just have
-  // a response code, and rely on isError() to know if it's an error.
-  function getResponseCode() {
-    return $this->errno;
-  }
-
-  // TODO: place this elsewhere.. was here before because
-  // we were using xml_parser functions before moving to SimpleXML
-
-  /**
-   * Login response handler.
-   *
-   * A typical success response is as follows:
-   * <response>
-   *   <merchant id="123456" key="12312312312312312312312312312312">
-   *     <login>
-   *       <trx id="123456789" key="34534534535434534534534534534534"/>
-   *     </login>
-   *   </merchant>
-   * </response>
-   *
-   * Typical error responses:
-   * Some fields were incorrectly formatted:
-   * <response>
-   *   <error>
-   *     <code>WX03</code>
-   *     <message><![CDATA[ Validation Error ]]></message>
-   *   </error>
-   * </response>
-   *
-   */
-
-  /**
-   * Payment response handler.
-   *
-   * A typical success response is as follows:
-   * <response input="xml">
-   *   <merchant id="123456">
-   *     <transaction id="34534534534534534534534534534534" currency="CAD" currencyText="CAD $ " approved="yes">
-   *       <terminal_id>05123456</terminal_id>
-   *       <urls>
-   *         <url name="success">
-   *           <path>NotUse</path>
-   *           <parameters>
-   *             <parameter name="TrxId">1234567890</parameter>
-   *           </parameters>
-   *         </url>
-   *       </urls>
-   *       <ecr_number>05987651</ecr_number>
-   *       <amount>1000</amount>
-   *       <language>FR</language>
-   *       <card_holder_name>John Doe</card_holder_name>
-   *       <date>12/01/06 10:14:24</date>
-   *       <effective_date>120107</effective_date>
-   *       <transaction_code>0</transaction_code>
-   *       <condition_code>1</condition_code>
-   *       <iso_code>00</iso_code>
-   *       <host_code>000</host_code>
-   *       <action_code>1</action_code>
-   *       <card_type>VISA</card_type>
-   *       <batch_no>001</batch_no>
-   *       <sequence_no>0010010111</sequence_no>
-   *       <process_info>T@1</process_info>
-   *       <authorization_no>101123</authorization_no>
-   *       <receipt_text>APPROUVEE - MERCI</receipt_text>
-   *       <receipt><![CDATA[0RELEVE DE TRANSACTION/TRANSACTION RECORD
-   *         0
-   *         0TPVEV000001  MARCH05123450
-   *         0          ORG NAME
-   *         0          1234 ADDRESS
-   *         0          MONTREAL, QC
-   *         0
-   *         0Carte/Card:VISA
-   *         0No.    45** **** **** 0990 14/10
-   *         0
-   *         0Seq.: 0011  Lot/Batch: 001
-   *         02012/01/06  10:14  T@1
-   *         0
-   *         0ACHAT/PURCHASE         $10.00
-   *         0AUTOR./AUTHOR.: 101234
-   *         0
-   *         0
-   *         0             00 APPROUVEE - MERCI
-   *
-   *         ]]>
-   *       </receipt>
-   *     </transaction>
-   *   </merchant>
-   * </response>
-   *
-   * ERROR:
-   * <response input="xml">
-   *   <merchant id="123456">
-   *     <transaction id="99c6f1790c608033c5193dcf6f5b08a8" currency="CAD" currencyText="CAD $ " approved="no">
-   *       <terminal_id>05123450</terminal_id>
-   *       <ecr_number>05123460</ecr_number>
-   *       <language>FR</language>
-   *       <card_holder_name>John Doe</card_holder_name>
-   *       <date>12/01/06 11:38:50</date>
-   *       <transaction_code>0</transaction_code>
-   *       <condition_code>117</condition_code>
-   *       [...]
-   *       <receipt_text>TRANSACTION NON COMPLETEE</receipt_text>
-   *       <receipt><![CDATA[0RELEVE DE TRANSACTION/TRANSACTION RECORD
-   *         0
-   *         0TPVEV000001  MARCH05028430
-   *         0          DEVELOPPEMENTETPAIX
-   *         0          1425 BOUL RENE-LEVES
-   *         0          MONTREAL, QC
-   *         0
-   *         0Carte/Card:
-   *         0No.    45** **** **** 0990 01/12
-   *         0
-   *         0Seq.:       Lot/Batch:
-   *          12012/01/06  11:38  T@1
-   *         1
-   *         1ACHAT/PURCHASE          $0.00
-   *         1AUTOR./AUTHOR.:
-   *         1
-   *         1           XX TRANSACTION NON COMPLETEE
-   *        ]]>
-   *       </receipt>
-   *     </transaction>
-   *   </merchant>
-   * </response>
-   *
-   * <?xml version="1.0" encoding="ISO-8859-15"?>
-   * <response>
-   *   <error>
-   *     <code>WE15</code>
-   *     <message><![CDATA[ Identificateur de transaction deja utilise ]]></message>
-   *   </error>
-   * </response>
-   */
-
-  /**
-   * Confirm request handler.
-   * This is a request done by Desjardins to our server, in order to confirm
-   * that the transaction is legitimate.
-   *
-   * A typical confirm request is as follows:
-   * <?xml version="1.0" encoding="ISO-8859-15"?>
-   * <request input="xml">
-   *   <merchant id="123456">
-   *     <confirm>
-   *       <transaction id="0c7e99559a190e105b4866efa2f21075" />
-   *     </confirm>
-   *   </merchant>
-   * </request>
-   */
-}
 
