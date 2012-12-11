@@ -326,12 +326,12 @@ class org_civicrm_payment_netbanx extends CRM_Core_Payment {
          [2] => stdClass Object ( [tag] => EFFECTIVE_DATE [value] => 121003)
          [3] => stdClass Object ( [tag] => TERMINAL_ID [value] => 85025505))
       */
-      if (method_exists($v1, 'addendumResponse')) {
+      if (property_exists($v1, 'addendumResponse')) {
         $v1->addendum = array();
 
-        foreach ($v1['addendumResponse']['detail'] as $key => $val) {
-          $tag = $val['tag'];
-          $v1->addendum[$tag] = $val['value'];
+        foreach ($v1->addendumResponse->detail as $key => $val) {
+          $tag = $val->tag;
+          $v1->addendum[$tag] = $val->value;
         }
       }
 
@@ -340,12 +340,12 @@ class org_civicrm_payment_netbanx extends CRM_Core_Payment {
 
     /**
      * Input: 4511111111111111
-     * Returns: 45** **** **** **11
+     * Returns: **** **** **** 1111 (Visa/MC/Amex requirement)
      */
     function netbanxGetCardForReceipt($card_number) {
       $a = substr($card_number, 0, 2);
-      $b = substr($card_number, -2, 2);
-      $str = $a . '** **** **** **' . $b;
+      $b = substr($card_number, -4, 4);
+      $str = '**** **** **** ' . $b;
       return $str;
     }
 
@@ -517,17 +517,16 @@ class org_civicrm_payment_netbanx extends CRM_Core_Payment {
 
       $receipt .= t('CREDIT CARD TRANSACTION RECORD') . "\n\n";
 
-      $receipt .= t('Date: !date', array('!date' => date('Y-m-d H:i'))) . "\n";
+      $receipt .= t('Date: !date', array('!date' => $response->txnTime)) . "\n";
       $receipt .= t('Transaction: !tx', array('!tx' => $this->invoice_id)) . "\n";
+      $receipt .= t('Type: purchase') . "\n"; // could be preauthorization, preauth completion, refund.
       $receipt .= t('Authorization: !authcode', array('!authcode' => $response->authCode)) . "\n";
-      $receipt .= t('Confirmation: !confirm', array('!confirm' => $response->confirmationNumber)) . "\n\n";
+      $receipt .= t('Confirmation: !confirm', array('!confirm' => $response->confirmationNumber)) . "\n";
+      $receipt .= t('Seq.: !seq  Batch: !batch', array('!seq' => $response->addendum['SEQ_NUMBER'], '!batch' => $response->addendum['BATCH_NUMBER'])) . "\n\n";
 
       $receipt .= t('Credit card: !type', array('!type' => $params['credit_card_type'])) . "\n";
       $receipt .= t('Card holder name: !name', array('!name' => $params['first_name'] . ' ' . $params['last_name'])) . "\n";
       $receipt .= t('Card number: !ccnum', array('!ccnum' => self::netbanxGetCardForReceipt($params['credit_card_number']))) . "\n\n";
-
-      $receipt .= t('Seq.: !seq  Batch: !batch', array('!seq' => $response->addendum['SEQ_NUMBER'], '!batch' => $response->addendum['BATCH_NUMBER'])) . "\n";
-      $receipt .= $response->txnTime . "\n\n";
 
       $receipt .= t('Purchase: !amount', array('!amount' => CRM_Utils_Money::format($params['amount']))) . "\n\n";
 
@@ -535,7 +534,7 @@ class org_civicrm_payment_netbanx extends CRM_Core_Payment {
         $receipt .= t('TRANSACTION APPROVED - THANK YOU') . "\n\n";
       }
       elseif ($response->decision == self::CIVICRM_NETBANX_PAYMENT_ERROR) {
-        $receipt .= t('TRANSACTION CANCELLED - !description', array('!details' => $response->description)) . "\n\n";
+        $receipt .= wordwrap(t('TRANSACTION CANCELLED - !description', array('!description' => $response->description))) . "\n\n";
       }
       elseif ($response->decision == self::CIVICRM_NETBANX_PAYMENT_DECLINED) {
         $description = $response->description;

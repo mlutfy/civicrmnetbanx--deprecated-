@@ -54,6 +54,9 @@ INSTALLATION:
   text for the field should link (and open in a new window) to your site's terms and conditions
   (site privacy policy, terms of use, refund/cancellation policy, shipping policy).
 
+  ToS must be visible on the contribution/event page, confirmation page and thank you page,
+  as well as on the receipt. You may need to modify the message templates to integrate them.
+
 * Either set your currency to "$ CAD" (but that is rather ugly), or add the following text
   at the end of the financial information of the Contribution/{Main,Confirm,ThankYou}.tpl:
   English: "All amounts are in canadian dollars ($ CAD)".
